@@ -1,0 +1,10 @@
+'use strict';
+const fs=require('node:fs'),crypto=require('node:crypto'),path=require('node:path');
+const destination=process.argv[2];if(!destination||!path.isAbsolute(destination))throw Error('Informe diretório ABSOLUTO fora do repositório');
+fs.mkdirSync(destination,{recursive:true,mode:0o700});
+const priv=path.join(destination,'enzo-signing-private.pem'),pub=path.join(destination,'enzo-signing-public.pem');
+if(fs.existsSync(priv)||fs.existsSync(pub))throw Error('Chaves já existentes; não substituir');
+const p=crypto.generateKeyPairSync('ed25519');
+fs.writeFileSync(priv,p.privateKey.export({type:'pkcs8',format:'pem'}),{mode:0o600,flag:'wx'});
+fs.writeFileSync(pub,p.publicKey.export({type:'spki',format:'pem'}),{mode:0o600,flag:'wx'});
+console.log('Chaves criadas fora do GitHub. Guarde a privada em local seguro.');
