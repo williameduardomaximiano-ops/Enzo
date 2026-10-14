@@ -1,0 +1,27 @@
+# ENZO: jamais versionar dados pessoais ou credenciais
+.env
+.env.*
+*.pem
+*.p12
+*.pfx
+*.key
+vault.enc
+vault.*
+settings.json
+permissions.json
+memory.json
+missions.json
+leads.json
+credentials.json
+*token*
+userData/
+logs/
+node_modules/
+resources/
+dist/
+build/
+*.exe
+*.zip
+*.part
+*.log
+.DS_Store
