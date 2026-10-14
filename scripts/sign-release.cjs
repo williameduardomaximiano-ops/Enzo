@@ -1,0 +1,10 @@
+'use strict';
+const fs=require('node:fs'),crypto=require('node:crypto'),path=require('node:path');
+const [keyPath,exePath,version,notesPath,outputPath]=process.argv.slice(2);
+if(!keyPath||!exePath||!version||!notesPath||!outputPath)throw Error('Uso: node scripts/sign-release.cjs PRIVADA.pem ENZO-X.Y.Z-Windows-x64.exe X.Y.Z NOTAS.txt enzo-update.json');
+if(!/^\d+\.\d+\.\d+$/.test(version)||path.basename(exePath)!=='ENZO-'+version+'-Windows-x64.exe')throw Error('Versão e instalador divergem');
+const key=crypto.createPrivateKey(fs.readFileSync(keyPath));if(key.asymmetricKeyType!=='ed25519')throw Error('Chave inválida');
+const b=fs.readFileSync(exePath),notes=fs.readFileSync(notesPath,'utf8');if(b.length<1024||notes.length>10000)throw Error('Arquivo ou notas inválidas');
+const payload=JSON.stringify({version,asset:path.basename(exePath),size:b.length,sha256:crypto.createHash('sha256').update(b).digest('hex'),notes});
+fs.writeFileSync(outputPath,JSON.stringify({payload,signature:crypto.sign(null,Buffer.from(payload),key).toString('base64')},null,2)+'\n');
+console.log('Manifesto pronto; publique com o .exe testado. Não publique a chave privada.');
