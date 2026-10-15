@@ -35,7 +35,7 @@ async function handleChat(value,source='desktop'){
  const i=matchVoiceIntent(text)||intent(text);let result;
  if(i.type==='voice_select'){const profile=voiceById(validateVoice(i.voice));settings.voiceProfile=profile.id;saveSettings();result={say:'Voz '+profile.name+' selecionada. Você pode testá-la em Configuração, na seção Voz Neural.'};}
  else if(i.type==='voice_tone'){const tone=toneById(validateTone(i.tone));settings.voiceTone=tone.id;saveSettings();result={say:'Estilo de voz '+tone.name+' salvo.'};}
- if(i.type==='time')result={say:`Agora são ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}.`};
+ else if(i.type==='time')result={say:`Agora são ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}.`};
  else if(i.type==='updates')result={say:await checkUpdate()};
  else if(i.type==='changelog')result={say:updater.available?.notes||'Nenhuma atualização nova verificada. Esta versão inclui voz local, holograma e controle supervisionado.'};
  else if(i.type==='install_update'){if(source!=='desktop')throw Error('Instalação só pode começar no computador.');result={say:await installUpdate()};}
