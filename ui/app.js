@@ -88,3 +88,82 @@ async function refreshMics(){const devices=await navigator.mediaDevices.enumerat
 $('#refresh-mics').onclick=async()=>{try{let t;try{t=await navigator.mediaDevices.getUserMedia({audio:true,video:false})}catch(e){notice('Microfone: permita o acesso no navegador do ENZO para listar os dispositivos.');return;}t.getTracks().forEach(x=>x.stop());const n=await refreshMics();notice(n?'Microfones atualizados. Escolha o seu, salve e faça o teste.':'Nenhum microfone encontrado.');}catch(e){notice(e.message)}};
 $('#test-mic').onclick=async()=>{if(testing||busy){notice('Aguarde o teste terminar.');return;}testing=true;micPeak=0;const token=++generation;notice('Teste: fale normalmente por 3 segundos…');try{const dev=settings.micDevice||$('#device').value;const s=await navigator.mediaDevices.getUserMedia({audio:{deviceId:dev?{exact:dev}:undefined,echoCancellation:settings.micEcho!==false,noiseSuppression:settings.micNoise!==false,autoGainControl:settings.micGain!==false},video:false});if(token!==generation){s.getTracks().forEach(t=>t.stop());testing=false;return;}const ctx=new AudioContext({sampleRate:16000});const src=ctx.createMediaStreamSource(s);const proc=ctx.createScriptProcessor(2048,1,1);src.connect(proc);proc.connect(ctx.destination);const stop=()=>{try{proc.disconnect();src.disconnect();ctx.close()}catch{}s.getTracks().forEach(t=>t.stop())};proc.onaudioprocess=e=>{const ch=new Float32Array(e.inputBuffer.getChannelData(0));const r=Math.sqrt(ch.reduce((a,x)=>a+x*x,0)/ch.length);if(r>micPeak)micPeak=r;setMeter(Math.min(1,r/.1))};await new Promise(r=>setTimeout(r,3000));if(token!==generation){stop();testing=false;return;}stop();testing=false;setMeter(0);const pct=Math.round(Math.min(1,micPeak/.1)*100);$('#mic-test').textContent='Nível máximo captado: '+pct+'%.';notice(pct<1?'Quase nenhum sinal. Verifique o dispositivo escolhido e o volume no Windows.':pct<8?'Sinal fraco. Fale mais perto/alto ou use sensibilidade Alta.':'Sinal bom. Pode ativar o microfone e falar.');}catch(e){testing=false;setMeter(0);notice('Microfone: '+e.message)}};
 $('#device').onchange=save;$('#mic-sensitivity').onchange=save;$('#mic-noise').onchange=save;$('#mic-echo').onchange=save;$('#mic-gain').onchange=save;
+
+
+// Sistema e calendário: sem valores fictícios, somente IPC validado do processo principal.
+let agendaMonth=new Date();
+agendaMonth=new Date(agendaMonth.getFullYear(),agendaMonth.getMonth(),1);
+let agendaEvents=[];
+function isoDay(d){
+  const p=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+}
+function renderAgenda(){
+  const now=new Date(),today=isoDay(now);
+  $('#agenda-day').textContent='Hoje, '+new Intl.DateTimeFormat('pt-BR',{day:'numeric',month:'long'}).format(now);
+  const todayList=agendaEvents.filter(e=>e.date===today);
+  const summary=$('#agenda-today');summary.replaceChildren();
+  if(!todayList.length)summary.textContent='Nenhum compromisso registrado para hoje.';
+  for(const e of todayList.slice(0,5)){
+    const d=document.createElement('div');d.textContent=e.time+' • '+e.title;summary.appendChild(d);
+  }
+  const future=agendaEvents.filter(e=>e.date>=today).slice(0,40);
+  const list=$('#all-events');list.replaceChildren();
+  const content=document.createElement('div');content.className='calendar-events';
+  for(const e of future){
+    const row=document.createElement('div');row.className='calendar-event';
+    const label=document.createElement('span');label.textContent=e.date.split('-').reverse().join('/')+' às '+e.time+' — '+e.title;
+    const remove=document.createElement('button');remove.type='button';remove.textContent='Remover';remove.setAttribute('aria-label','Remover '+e.title);
+    remove.onclick=async()=>{try{await invoke('calendarRemove',e.id);notice('Compromisso removido.');await refreshDashboard();}catch(err){notice('Agenda: '+err.message);}};
+    row.append(label,remove);content.appendChild(row);
+  }
+  list.appendChild(content);
+  if(!future.length)list.textContent='Nenhum compromisso futuro registrado.';
+  drawMonth();
+}
+function drawMonth(){
+  const y=agendaMonth.getFullYear(),m=agendaMonth.getMonth();
+  $('#month-title').textContent=new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric'}).format(agendaMonth);
+  const grid=$('#calendar-month');grid.replaceChildren();
+  for(const day of ['D','S','T','Q','Q','S','S']){const head=document.createElement('span');head.className='calendar-weekday';head.textContent=day;grid.appendChild(head);}
+  const start=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate();
+  for(let i=0;i<start;i++){const el=document.createElement('span');el.className='calendar-empty';grid.appendChild(el);}
+  const eventDates=new Set(agendaEvents.map(e=>e.date));
+  const selected=$('#event-date').value;
+  for(let d=1;d<=days;d++){
+    const day=new Date(y,m,d),id=isoDay(day);
+    const btn=document.createElement('button');btn.type='button';btn.className='calendar-day';
+    if(eventDates.has(id))btn.classList.add('has-event');
+    if(id===selected)btn.classList.add('active');
+    btn.textContent=String(d);btn.setAttribute('aria-label',day.toLocaleDateString('pt-BR'));
+    btn.onclick=()=>{$('#event-date').value=id;drawMonth();};
+    grid.appendChild(btn);
+  }
+}
+async function refreshDashboard(){
+  const response=await invoke('dashboard'),sys=response.system||{};
+  $('#cpu-usage').textContent=sys.cpuPercent===null||sys.cpuPercent===undefined?'N/D':sys.cpuPercent+'%';
+  $('#ram-usage').textContent=sys.ram?.usedPercent==null?'N/D':sys.ram.usedPercent+'%';
+  $('#gpu-usage').textContent=sys.gpu?.usagePercent==null?'N/D':sys.gpu.usagePercent+'%';
+  $('#gpu-temp').textContent=sys.gpu?.temperatureC==null?'N/D':sys.gpu.temperatureC+' °C';
+  $('#cpu-temp-note').textContent='Temperatura da CPU: '+(sys.cpuTemperatureC==null?'N/D — sensor não disponível.':sys.cpuTemperatureC+' °C');
+  $('#gpu-model').textContent=sys.gpu?.name||'GPU: monitoramento não disponível nesta configuração.';
+  agendaEvents=Array.isArray(response.events)?response.events:[];
+  renderAgenda();
+}
+$('#event-date').value=isoDay(new Date());
+$('#event-time').value='09:00';
+$('#event-date').onchange=drawMonth;
+$('#month-prev').onclick=()=>{agendaMonth=new Date(agendaMonth.getFullYear(),agendaMonth.getMonth()-1,1);drawMonth();};
+$('#month-next').onclick=()=>{agendaMonth=new Date(agendaMonth.getFullYear(),agendaMonth.getMonth()+1,1);drawMonth();};
+$('#event-form').addEventListener('submit',async e=>{
+  e.preventDefault();
+  try{
+    const title=$('#event-title').value.trim(),date=$('#event-date').value,time=$('#event-time').value;
+    await invoke('calendarAdd',{title,date,time});
+    $('#event-title').value='';notice('Compromisso adicionado ao calendário local.');
+    await refreshDashboard();
+  }catch(err){notice('Agenda: '+err.message);}
+});
+refreshDashboard().catch(e=>notice('Widgets: '+e.message));
+setInterval(()=>{if(!document.hidden)refreshDashboard().catch(()=>{});},12000);
