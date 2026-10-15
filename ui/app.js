@@ -1,6 +1,7 @@
-import {createHologram} from './hologram.js';
-const $=s=>document.querySelector(s);let holo;try{holo=createHologram($('#hologram'))}catch{$('#holo-text').textContent='WebGL indisponível. Atualize o driver gráfico.'}
-const api=window.enzo;let settings={},active=false,busy=false,audioCtx,stream,processor,source,frames=[],samples=0,heard=false,silent=0,generation=0,playing,playCtx,uiState='idle';const SENS={alta:.008,normal:.013,baixa:.022};let micPeak=0,testing=false;
+import {createAvatarSlot} from './avatar-slot.js';
+import {initDashboard} from './dashboard.js';
+const $=s=>document.querySelector(s);let holo=createAvatarSlot($('#avatar-slot'));
+const api=window.enzo;initDashboard({api,notify:t=>notice(t)});let settings={},active=false,busy=false,audioCtx,stream,processor,source,frames=[],samples=0,heard=false,silent=0,generation=0,playing,playCtx,uiState='idle';const SENS={alta:.008,normal:.013,baixa:.022};let micPeak=0,testing=false;
 const names={idle:'DISPONÍVEL',listening:'OUVINDO',thinking:'PENSANDO',speaking:'FALANDO',permission:'AGUARDANDO AUTORIZAÇÃO',executing:'EXECUTANDO',paused:'PAUSADO',updating:'ATUALIZANDO'};
 function notice(t){$('#notice').textContent=t||''}
 function state(s){uiState=s;$('#state-label').textContent=names[s]||s;holo?.setState(s);$('#holo-text').textContent=({listening:'Pode falar. Estou ouvindo.',thinking:'Um instante, estou pensando.',speaking:'Vamos conversar.',paused:'Seu espaço está em modo privacidade.',permission:'A decisão é sua.',executing:'Executando sua solicitação.'})[s]||'Pronto quando você precisar.';}function setMeter(v){const m=$('#mic-level');if(m)m.style.width=Math.round(Math.min(1,Math.max(0,v))*100)+'%';}
