@@ -1,0 +1,36 @@
+name: Testar vozes ENZO
+on:
+  push:
+    branches: ['feature/vozes-masculinas-015']
+    paths:
+      - 'core/voice-catalog.cjs'
+      - 'voice/worker.py'
+      - 'ui/**'
+      - 'desktop/**'
+      - 'tests/voice-catalog.test.cjs'
+      - '.github/workflows/testar-vozes.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Checar sintaxe e lista de vozes
+        run: |
+          node --check core/voice-catalog.cjs
+          node --check desktop/main.cjs
+          node --check desktop/preload.cjs
+          python -m py_compile voice/worker.py
+          node --test tests/voice-catalog.test.cjs
+      - name: Verificar montagem da interface
+        run: |
+          npm ci
+          npm run bundle
