@@ -1,0 +1,56 @@
+[
+  {
+    "path": "models/MODEL_CARD",
+    "url": "https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium/MODEL_CARD?download=true",
+    "sha256": "01f1a5bcfd0538782726059ae407eae9c2dd1b5b35f7298fd53a68de91afe563",
+    "size": 279
+  },
+  {
+    "path": "models/pt_BR-faber-medium.onnx",
+    "url": "https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx?download=true",
+    "sha256": "858555e3a064209c57088fe6bd70c4c3dc54d03eaa00c45d5ecaf43a33f95aa7",
+    "size": 63201294
+  },
+  {
+    "path": "models/pt_BR-faber-medium.onnx.json",
+    "url": "https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx.json?download=true",
+    "sha256": "7e694de195ae3fc36dd732c445eb04fb49b649854893cb5506b978f0d50a1d6f",
+    "size": 4855
+  },
+  {
+    "path": "models/whisper-base/config.json",
+    "url": "https://huggingface.co/Systran/faster-whisper-base/resolve/main/config.json?download=true",
+    "sha256": "56a6d8110d311f19c8f0471e562832c7527f146b567275bfca59fcf7c184da9a",
+    "size": 2309
+  },
+  {
+    "path": "models/whisper-base/model.bin",
+    "url": "https://huggingface.co/Systran/faster-whisper-base/resolve/main/model.bin?download=true",
+    "sha256": "d01c3014881c9c6f3133c182f3d2887eb6ca1c789a7538c5c007196857a0a6a9",
+    "size": 145217532
+  },
+  {
+    "path": "models/whisper-base/tokenizer.json",
+    "url": "https://huggingface.co/Systran/faster-whisper-base/resolve/main/tokenizer.json?download=true",
+    "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab",
+    "size": 2203239
+  },
+  {
+    "path": "models/whisper-base/vocabulary.txt",
+    "url": "https://huggingface.co/Systran/faster-whisper-base/resolve/main/vocabulary.txt?download=true",
+    "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913",
+    "size": 459861
+  },
+  {
+    "path": "python-embed.zip",
+    "url": "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip",
+    "sha256": "009d6bf7e3b2ddca3d784fa09f90fe54336d5b60f0e0f305c37f400bf83cfd3b",
+    "size": 11249023
+  },
+  {
+    "path": "VC_redist.x64.exe",
+    "url": "https://aka.ms/vs/17/release/vc_redist.x64.exe",
+    "sha256": "cc0ff0eb1dc3f5188ae6300faef32bf5beeba4bdd6e8e445a9184072096b713b",
+    "size": 25635768
+  }
+]

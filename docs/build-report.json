@@ -1,0 +1,16 @@
+{
+  "version": "0.1.0",
+  "installer_file": "ENZO-0.1.0-Windows-x64.exe",
+  "size_bytes": 487278269,
+  "sha256": "7baa02461f4a58c50ddb1c455b90ad749370b503d658c3020a7c34e55d836c03",
+  "build_host": "Linux x86_64",
+  "installer_format": "NSIS Unicode x86 bootstrap with Windows x64 application",
+  "windows_application_machine": "AMD64 0x8664",
+  "authenticode_signed": false,
+  "windows_execution_tested": false,
+  "packaged_models_sha256_verified": true,
+  "voice_worker_matches_tested_source": true,
+  "test_count": 16,
+  "test_pass": 16,
+  "update_channel_published": false
+}

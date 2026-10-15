@@ -1,0 +1,28 @@
+
+> enzo-assistente@0.1.0 test
+> node --test tests/*.test.cjs
+
+✔ Android exige código, aprovação, token, origem e revogação (66.761929ms)
+✔ recusa de pareamento não cria credencial (9.275371ms)
+✔ bloqueia shell e parâmetros arbitrários (0.932457ms)
+✔ bloqueia protocolos executáveis e credenciais em links (0.28414ms)
+✔ autorização é específica e consumida uma vez (0.889825ms)
+✔ negativa não executa e invalida autorização (0.143392ms)
+✔ autorização expira (0.154248ms)
+✔ pausa revoga pendências e impede novas ações até retomar (0.208358ms)
+✔ limites de texto impedem payload gigante (0.163762ms)
+✔ comandos de atualização por voz (0.439369ms)
+✔ ordens locais e emergência sem modelo (0.459259ms)
+✔ atualização exige assinatura válida (1.539614ms)
+✔ atualização bloqueia downgrade, HTTP e metadados inválidos (0.885518ms)
+✔ sem chave de publicação não há atualização confiável (0.172755ms)
+✔ adaptador Ollama real HTTP: conversa, ação proposta e erro (45.901844ms)
+✔ worker de voz responde saúde, rejeita operação e reinicia após cancelamento (155.045377ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 235.777615

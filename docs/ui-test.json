@@ -1,0 +1,10 @@
+{
+  "environment": "Chromium Linux, mocked IPC; not Electron/Windows",
+  "passed": [
+    "WebGL page loads without JS errors",
+    "chat form renders response",
+    "settings lists model",
+    "440px and 1240px layouts render"
+  ],
+  "errors": []
+}

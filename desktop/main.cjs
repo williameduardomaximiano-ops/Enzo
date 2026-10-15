@@ -1,0 +1,111 @@
+const {app,BrowserWindow,ipcMain,dialog,shell,globalShortcut,session,Tray,Menu,nativeImage,safeStorage}=require('electron');
+const path=require('node:path'),fs=require('node:fs'),os=require('node:os');const {spawn}=require('node:child_process');
+const {Gate,APPS,cleanText}=require('../core/policy.cjs');const {intent}=require('../core/intent.cjs');const {WorkMode}=require('../core/workmode.cjs');const {ModeStore,VoiceModes,parseTargets,normalizeName,LABELS}=require('../core/modes.cjs');const llm=require('../core/llm.cjs');const {Voice}=require('../core/voice.cjs');const {GitHubPrivateUpdater}=require('../updater/github-private.cjs');const {OWNER,REPO,PUBLIC_KEY_PEM}=require('../core/update-channel.cjs');const {Companion}=require('../core/android.cjs');const vaultLib=require('../core/vault.cjs');
+let win,tray,voice,updater,companion,workMode,modeStore,voiceModes,root,python,dataDir,settings,controller,busy=false,epoch=0,updateTimer,controlProcess;const gate=new Gate();const history=[];let state='idle';
+const defaults={remember:false,continuous:false,compact:false,provider:'auto',groqModel:'openai/gpt-oss-120b',geminiModel:'gemini-3.5-flash',autoUpdate:true,micDevice:'',micSensitivity:'normal',micNoise:true,micEcho:true,micGain:true};
+let apiKeys=vaultLib.emptyVault();
+function emit(type,data={}){win?.webContents.send('event',{type,...data});}
+function setState(s){state=s;emit('state',{state:s});}
+function audit(type,data={}){const entry={at:new Date().toISOString(),type,...data};fs.appendFileSync(path.join(dataDir,'audit.jsonl'),JSON.stringify(entry)+'\n');}
+function status(){return {version:app.getVersion(),state,settings,paused:gate.paused,platform:process.platform,ramGB:Math.round(os.totalmem()/2**30),cpus:os.cpus().length,providers:vaultLib.statusOf(apiKeys),encryption:safeStorage.isEncryptionAvailable(),update:updater.available?{version:updater.available.version,notes:updater.available.notes}:null};}
+function saveSettings(){fs.writeFileSync(path.join(dataDir,'settings.json'),JSON.stringify(settings,null,2));}
+function vaultFile(){return path.join(dataDir,'vault.enc');}
+function loadVault(){let raw=null;try{const b=Buffer.from(fs.readFileSync(vaultFile(),'utf8'),'base64');raw=JSON.parse(safeStorage.decryptString(b));}catch{try{audit('vault-load-failed',{stage:'open'});}catch{}apiKeys=vaultLib.emptyVault();return;}const next=vaultLib.emptyVault();for(const p of vaultLib.PROVIDERS){try{if(raw&&typeof raw[p]==='string'&&raw[p])next[p]=vaultLib.validateKey(raw[p]);}catch{try{audit('vault-load-failed',{stage:p});}catch{}}}apiKeys=next;}
+function persistVault(){if(!safeStorage.isEncryptionAvailable())throw Error('Criptografia indisponível neste sistema. Chave não salva.');const tmp=vaultFile()+'.tmp';fs.writeFileSync(tmp,safeStorage.encryptString(JSON.stringify(apiKeys)).toString('base64'));try{const back=JSON.parse(safeStorage.decryptString(Buffer.from(fs.readFileSync(tmp,'utf8'),'base64')));if(vaultLib.statusOf(back).groq!==vaultLib.statusOf(apiKeys).groq)throw Error('verificação');}catch{try{fs.rmSync(tmp,{force:true});}catch{}throw Error('Falha ao conferir o cofre. Chave não salva.');}fs.rmSync(vaultFile(),{force:true});fs.renameSync(tmp,vaultFile());}
+function clearSecrets(){apiKeys=vaultLib.emptyVault();}
+async function authorize(action){const pending=gate.propose(action);setState('permission');const a=pending.action;const detail=a.type==='open_app'?APPS[a.app]:a.type==='open_url'?a.url:a.type==='type_text'?`Colar este texto na janela que você escolher (substitui a área de transferência):\n${a.text}`:`Atalho: ${a.key}`;
+ const result=await dialog.showMessageBox(win,{type:'question',title:'ENZO • Permissão',message:'Autorizar esta ação?',detail,buttons:['Cancelar','Autorizar uma vez'],defaultId:0,cancelId:0,noLink:true});const allowed=gate.consume(pending.id,result.response===1);if(!allowed)return 'Ação cancelada.';audit('action-approved',{action:allowed.type});setState('executing');
+ if(allowed.type==='open_app'){
+ if(process.platform!=='win32')throw Error('Este comando exige Windows.');
+ const exe=path.join(process.env.SystemRoot||'C:\\Windows',allowed.app==='explorador'?'':'System32',APPS[allowed.app]);
+ await new Promise((resolve,reject)=>{const p=spawn(exe,[],{detached:true,stdio:'ignore',windowsHide:false});p.once('error',reject);p.once('spawn',()=>{p.unref();resolve()})});
+ }else if(allowed.type==='open_url'){await shell.openExternal(allowed.url);}else{
+ if(process.platform!=='win32')throw Error('Este comando exige Windows.');emit('notice',{text:'Selecione a janela de destino. Ação em 5 segundos. Ctrl+Alt+Esc cancela.'});win.minimize();const token=epoch;await new Promise(r=>setTimeout(r,5000));if(epoch!==token||gate.paused)throw Error('Ação interrompida.');
+ await new Promise((resolve,reject)=>{const p=spawn(python,['-u',path.join(root,'voice','windows_control.py')],{windowsHide:true,stdio:['pipe','pipe','pipe']});controlProcess=p;let out='';p.stdout.on('data',x=>out+=x);p.on('error',reject);p.on('exit',code=>{controlProcess=null;code===0?resolve():reject(Error('Ação interrompida ou falhou. '+out.slice(0,300)))});p.stdin.end(JSON.stringify(allowed));});
+ }
+ audit('action-completed',{action:allowed.type});return 'Comando executado.';
+}
+async function checkUpdate(){const result=await updater.check();emit('update',{update:result});audit('update-checked',{found:result?result.version:null});return result?`Versão ${result.version} disponível. ${result.notes}`:'Você está na versão mais recente publicada.';}
+function backupUserData(tag){const dest=path.join(dataDir,'updates',`backup-${tag}-${Date.now()}`);fs.mkdirSync(dest,{recursive:true});for(const f of ['settings.json','vault.enc','modes.json','history.json','audit.jsonl']){try{fs.copyFileSync(path.join(dataDir,f),path.join(dest,f));}catch{}}return dest;}
+async function installUpdate(){if(!updater.available)throw Error('Nenhuma atualização verificada disponível. Verifique primeiro.');const m=updater.available;const answer=await dialog.showMessageBox(win,{type:'question',message:`Instalar ENZO ${m.version}?`,detail:m.notes+'\nO ENZO será fechado após abrir o instalador. O Windows poderá pedir confirmação. Seus dados serão preservados.',buttons:['Cancelar','Instalar'],cancelId:0,defaultId:0});if(answer.response!==1)return 'Instalação cancelada.';const token=epoch;setState('updating');const file=await updater.download();if(token!==epoch)throw Error('Atualização cancelada antes da execução.');const backup=backupUserData(m.version);audit('update-backup',{dest:backup});const err=await shell.openPath(file);if(err)throw Error(err);app.quit();return 'Instalador aberto.';}
+async function handleChat(value,source='desktop'){
+ const text=cleanText(value);if(intent(text).type==='stop'){stop();return {say:'Pausado. Microfone e controle desligados.'};}
+ if(gate.paused)throw Error('ENZO pausado. Clique em Retomar no computador.');if(busy)throw Error('Já estou processando um pedido. Você pode interromper.');busy=true;const token=epoch;controller=new AbortController();setState('thinking');
+ try{
+ const i=intent(text);let result;
+ if(i.type==='time')result={say:`Agora são ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}.`};
+ else if(i.type==='updates')result={say:await checkUpdate()};
+ else if(i.type==='changelog')result={say:updater.available?.notes||'Nenhuma atualização nova verificada. Esta versão inclui voz local, holograma e controle supervisionado.'};
+ else if(i.type==='install_update'){if(source!=='desktop')throw Error('Instalação só pode começar no computador.');result={say:await installUpdate()};}
+ else if(i.type==='work_mode_start'){if(source!=='desktop')throw Error('Modo Trabalho só pode ser iniciado no computador.');const report=modeStore.hasSaved('trabalho')?await voiceModes.start('trabalho',{shouldContinue:()=>!gate.paused&&epoch===token}):await workMode.start({shouldContinue:()=>!gate.paused&&epoch===token});if(report.cancelled)throw Error('Modo Trabalho interrompido.');audit('work-mode-start',{success:report.results?.length||0,errors:report.errors?.length||0});result={say:report.say};}
+ else if(i.type==='work_mode_end'){if(source!=='desktop')throw Error('Modo Trabalho só pode ser encerrado no computador.');result={say:workMode.end()};voiceModes.end('trabalho');}
+ else if(i.type.startsWith('mode_')){
+  if(source!=='desktop')throw Error('Gerenciar modos por voz só é permitido diretamente no computador.');
+  const name=i.name?normalizeName(i.name):null;
+  let say;
+  if(i.type==='mode_list'){
+   const entries=modeStore.list();say='Modo Trabalho'+(modeStore.hasSaved('trabalho')?' (personalizado)':' (padrão)')+(entries.filter(m=>m.name!=='trabalho').length?'. Outros modos salvos: '+entries.filter(m=>m.name!=='trabalho').map(m=>m.name).join(', '):'. Você ainda não salvou outros modos.');
+  }else if(i.type==='mode_save'){
+   const targets=parseTargets(i.targets);
+   if(modeStore.hasSaved(name)){
+    const response=await dialog.showMessageBox(win,{type:'question',message:`Substituir o modo ${name}?`,detail:'O modo salvo será atualizado somente com os aplicativos e sites que você acabou de dizer.',buttons:['Cancelar','Substituir modo'],defaultId:0,cancelId:0});
+    if(response.response!==1){say='Alteração cancelada. O modo antigo foi mantido.';}
+   }
+   if(!say){modeStore.save(name,targets);voiceModes.end(name);audit('mode-saved',{name,targets});say=`Modo ${name} salvo com ${targets.map(t=>LABELS[t]).join(', ')}. Diga: Enzo, inicie o modo ${name}.`;}
+  }else if(i.type==='mode_save_existing'){
+   const existing=modeStore.get(name);if(!existing)throw Error(`Para criar esse modo, diga: Enzo, salve o modo ${name} com Brave e ChatGPT.`);
+   modeStore.save(name,existing);audit('mode-saved',{name,targets:existing});say=`Modo ${name} salvo no ENZO. Você poderá pedir para iniciar esse modo novamente.`;
+  }else if(i.type==='mode_add'){
+   const targets=parseTargets(i.targets);modeStore.add(name,targets);voiceModes.end(name);audit('mode-edited',{name,operation:'add',targets});say=`Atualizei e salvei o modo ${name}. Adicionados: ${targets.map(t=>LABELS[t]).join(', ')}.`;
+  }else if(i.type==='mode_remove'){
+   const targets=parseTargets(i.targets);modeStore.remove(name,targets);voiceModes.end(name);audit('mode-edited',{name,operation:'remove',targets});say=`Atualizei e salvei o modo ${name}. Removidos: ${targets.map(t=>LABELS[t]).join(', ')}.`;
+  }else if(i.type==='mode_delete'){
+   if(!modeStore.hasSaved(name))throw Error('Esse modo personalizado não existe.');
+   const response=await dialog.showMessageBox(win,{type:'warning',message:`Excluir o modo ${name}?`,detail:'Isso apaga somente o atalho personalizado; não fecha programas nem remove arquivos.',buttons:['Cancelar','Excluir modo'],defaultId:0,cancelId:0});
+   if(response.response!==1)say='Exclusão cancelada.';else{modeStore.delete(name);voiceModes.end(name);audit('mode-deleted',{name});say=`Modo ${name} excluído.`;}
+  }else if(i.type==='mode_start'){
+   const report=await voiceModes.start(name,{shouldContinue:()=>!gate.paused&&epoch===token});if(report.cancelled)throw Error('Abertura interrompida.');audit('mode-started',{name,success:report.results.length,errors:report.errors.length});say=report.say;
+  }else if(i.type==='mode_end')say=voiceModes.end(name);
+  else throw Error('Comando desconhecido.');
+  result={say};
+ }
+ else if(i.type==='action')result={say:await authorize(i.action)};
+ else{result=await llm.chatAuto([...history,{role:'user',content:text}],settings,apiKeys,controller.signal);if(epoch!==token)throw Error('Pedido cancelado.');if(result.action)result={say:await authorize(result.action)};}
+ if(epoch!==token)throw Error('Pedido cancelado.');history.push({role:'user',content:text},{role:'assistant',content:result.say});if(history.length>24)history.splice(0,history.length-24);if(settings.remember)fs.writeFileSync(path.join(dataDir,'history.json'),JSON.stringify(history));audit('request-completed',{source});if(source==='android')emit('remote',{text,reply:result.say});return result;
+ }catch(e){audit('request-failed',{source});throw e;}finally{if(token===epoch){busy=false;setState(gate.paused?'paused':'idle');}}
+}
+function stop(){epoch++;try{workMode?.end();voiceModes?.stop();}catch{}controller?.abort();controlProcess?.kill();voice?.stop();busy=false;gate.pause();setState('paused');emit('stop');audit('paused');}
+function ipc(name,fn){ipcMain.handle(name,async(e,...args)=>{if(e.sender!==win.webContents||e.senderFrame!==win.webContents.mainFrame)throw Error('Origem IPC recusada.');try{return {ok:true,data:await fn(...args)}}catch(error){return {ok:false,error:error.message}}});}
+const single=app.requestSingleInstanceLock();if(!single)app.quit();else app.whenReady().then(()=>{
+ dataDir=app.getPath('userData');workMode=new WorkMode();modeStore=new ModeStore(dataDir);voiceModes=new VoiceModes(modeStore);root=app.isPackaged?process.resourcesPath:path.join(__dirname,'..');const runtime=app.isPackaged?path.join(root,'runtime'):path.join(root,'resources');python=process.platform==='win32'?path.join(runtime,'python','python.exe'):(process.env.ENZO_PYTHON||'python3');
+ try{settings={...defaults,...JSON.parse(fs.readFileSync(path.join(dataDir,'settings.json'),'utf8'))}}catch{settings={...defaults}};
+  loadVault();
+  try{if(!vaultLib.ORDER.includes(settings.provider)){settings.provider='auto';saveSettings();}}catch{}
+ if(settings.remember){try{history.push(...JSON.parse(fs.readFileSync(path.join(dataDir,'history.json'),'utf8')).slice(-24))}catch{}}
+ voice=new Voice(python,path.join(root,'voice','worker.py'),path.join(runtime,'models'));
+ updater=new GitHubPrivateUpdater({owner:OWNER,repo:REPO,currentVersion:app.getVersion(),publicKey:PUBLIC_KEY_PEM,directory:path.join(dataDir,'updates'),tokenProvider:async()=>{if(apiKeys.github)return apiKeys.github;if(process.env.ENZO_GITHUB_TOKEN&&process.env.ENZO_GITHUB_TOKEN.trim())return process.env.ENZO_GITHUB_TOKEN.trim();throw Error('Token de leitura do GitHub ausente. Salve em Configuração → Cofre (GitHub).');}});
+ win=new BrowserWindow({width:1160,height:780,minWidth:410,minHeight:520,backgroundColor:'#080e18',title:'ENZO',show:false,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true}});
+ win.removeMenu();win.webContents.setWindowOpenHandler(()=>({action:'deny'}));win.webContents.on('will-navigate',e=>e.preventDefault());
+ session.defaultSession.setPermissionRequestHandler((wc,permission,callback,details)=>callback(wc===win.webContents&&permission==='media'&&details.mediaTypes?.every(x=>x==='audio')));
+ session.defaultSession.setPermissionCheckHandler((wc,permission)=>wc===win.webContents&&permission==='media');
+ win.loadFile(path.join(__dirname,'../ui/index.html'));win.once('ready-to-show',()=>{win.show();if(modeStore.loadError)emit('notice',{text:'Modos: arquivo salvo precisa de reparo. Não foi sobrescrito.'});});
+ const icon=nativeImage.createFromDataURL('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAE0lEQVR42mNk+P+/HgMNgGE0DAMA5H4DHcXIo/8AAAAASUVORK5CYII=');tray=new Tray(icon);tray.setToolTip('ENZO');tray.setContextMenu(Menu.buildFromTemplate([{label:'Abrir ENZO',click:()=>{win.show();win.focus()}},{label:'Pausar tudo',click:stop},{label:'Sair',click:()=>app.quit()}]));tray.on('click',()=>win.show());
+ globalShortcut.register('CommandOrControl+Alt+Escape',stop);globalShortcut.register('CommandOrControl+Alt+Space',()=>{win.show();emit('toggle-mic')});
+ companion=new Companion(path.join(__dirname,'../android/index.html'),async ip=>{const r=await dialog.showMessageBox(win,{type:'question',message:'Conectar este Android?',detail:`Pedido recebido de ${ip}. Confirme somente se acabou de digitar o código no seu aparelho.`,buttons:['Recusar','Conectar por 1 hora'],defaultId:0,cancelId:0});return r.response===1;},text=>handleChat(text,'android'),()=>({state,paused:gate.paused}));
+ ipc('status',status);ipc('diagnostics',async()=>({voice:await voice.call('health'),providers:vaultLib.statusOf(apiKeys),encryption:safeStorage.isEncryptionAvailable(),runtime:process.platform,version:app.getVersion()}));ipc('dependency',async kind=>{if(kind==='vc'){if(process.platform!=='win32')throw Error('Componente exclusivo do Windows.');const r=await dialog.showMessageBox(win,{type:'question',message:'Abrir o instalador oficial Microsoft Visual C++?',detail:'Este componente é necessário para a voz. O Windows pode pedir permissão de administrador.',buttons:['Cancelar','Abrir instalador'],defaultId:0,cancelId:0});if(r.response===1){const err=await shell.openPath(path.join(runtime,'VC_redist.x64.exe'));if(err)throw Error(err);}return true;}throw Error('Componente desconhecido.');});ipc('chat',t=>handleChat(t));
+ ipc('transcribe',async audio=>{if(gate.paused)throw Error('Microfone pausado.');if(typeof audio!=='string'||audio.length>3000000)throw Error('Áudio inválido.');return voice.call('transcribe',{audio})});
+ ipc('speak',async text=>{if(gate.paused)throw Error('Voz pausada.');return voice.call('speak',{text:cleanText(text,6000)})});
+ ipc('stop',()=>{stop();return true});ipc('resume',()=>{gate.resume();setState('idle');return true});
+ ipc('configure',cfg=>{if(!cfg||typeof cfg!=='object')throw Error('Configuração inválida.');if(typeof cfg.provider==='string')settings.provider=vaultLib.validateOrder(cfg.provider);for(const k of ['groqModel','geminiModel'])if(typeof cfg[k]==='string'&&/^[-\w.:/]{1,100}$/.test(cfg[k]))settings[k]=cfg[k];if(typeof cfg.micDevice==='string'&&cfg.micDevice.length<=500)settings.micDevice=cfg.micDevice;if(typeof cfg.micSensitivity==='string'&&['alta','normal','baixa'].includes(cfg.micSensitivity))settings.micSensitivity=cfg.micSensitivity;for(const k of ['remember','continuous','autoUpdate','micNoise','micEcho','micGain'])if(typeof cfg[k]==='boolean')settings[k]=cfg[k];if(!settings.remember)fs.rmSync(path.join(dataDir,'history.json'),{force:true});saveSettings();return settings});
+ ipc('vault-set',cfg=>{if(!cfg||typeof cfg!=='object')throw Error('Dados inválidos.');const p=vaultLib.validateProvider(cfg.provider);if(typeof cfg.key==='string'&&cfg.key.trim()===''){apiKeys[p]='';persistVault();audit('vault-cleared',{provider:p});return vaultLib.statusOf(apiKeys);}apiKeys[p]=vaultLib.validateKey(cfg.key);persistVault();audit('vault-updated',{provider:p});return vaultLib.statusOf(apiKeys)});
+ ipc('vault-status',()=>({configured:vaultLib.statusOf(apiKeys),encryption:safeStorage.isEncryptionAvailable()}));
+ ipc('vault-clear',provider=>{const p=vaultLib.validateProvider(provider);apiKeys[p]='';persistVault();audit('vault-cleared',{provider:p});return vaultLib.statusOf(apiKeys)});
+ ipc('clear-history',()=>{history.length=0;fs.rmSync(path.join(dataDir,'history.json'),{force:true});return true});
+ ipc('check-update',checkUpdate);ipc('install-update',installUpdate);
+ ipc('android',async enabled=>{if(enabled!==true){companion.stop();return null;}const r=await dialog.showMessageBox(win,{type:'warning',message:'Ativar conexão com Android nesta rede?',detail:'Use somente uma rede Wi-Fi privada e confiável. Esta conexão local usa HTTP, sem criptografia de transporte. Não envie senhas ou dados sensíveis. Os comandos de controle exigem aprovação no PC.',buttons:['Cancelar','Ativar'],defaultId:0,cancelId:0});if(r.response!==1)return null;return companion.start();});
+ ipc('window',mode=>{if(mode==='compact'){settings.compact=!settings.compact;win.setAlwaysOnTop(settings.compact);win.setSize(settings.compact?440:1160,settings.compact?600:780);emit('compact',{enabled:settings.compact});return settings.compact;}if(mode==='minimize')win.minimize();return true});
+ if(settings.autoUpdate!==false){updateTimer=setInterval(()=>updater.check().then(update=>emit('update',{update})).catch(()=>{}),6*3600000);setTimeout(()=>updater.check().then(update=>emit('update',{update})).catch(e=>emit('notice',{text:'Atualizações: '+e.message})),15000);}
+});
+app.on('before-quit',()=>{clearInterval(updateTimer);voice?.stop();companion?.stop();controller?.abort();controlProcess?.kill();clearSecrets();globalShortcut.unregisterAll()});app.on('window-all-closed',()=>app.quit());
+
+app.on('second-instance',()=>{if(win){win.restore();win.show();win.focus();}});

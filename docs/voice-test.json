@@ -1,0 +1,8 @@
+{
+  "environment": "Linux CPU; synthetic voice roundtrip, not microphone or Windows",
+  "tts_seconds_cold": 1.5349544090001928,
+  "tts_seconds_warm": 0.0883511270001236,
+  "stt_seconds_cold": 0.9297181860001729,
+  "transcription": "Olá, eu sou o Enzo. Abra a calculadora.",
+  "audio_seconds": 2.9605442176870747
+}
