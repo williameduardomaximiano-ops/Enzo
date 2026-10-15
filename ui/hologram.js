@@ -24,6 +24,8 @@ const VERTEX = `
 `;
 const FRAGMENT = `
   uniform sampler2D uImage;
+  uniform vec3 uAccent;
+  uniform float uVisualMode;
   uniform float uMouth;
   uniform float uBlink;
   uniform float uBrow;
@@ -60,6 +62,14 @@ const FRAGMENT = `
     uv.y+=uBlink*eyeMask*(direction-uv.y)*.93;
 
     vec3 col=texture2D(uImage,clamp(uv,vec2(.001),vec2(.999))).rgb;
+    // O modo original mantém cada cor da imagem sem modificação.
+    if(uVisualMode > 0.5) {
+      float lit=max(max(col.r,col.g),col.b);
+      float glow=smoothstep(.12,.83,lit);
+      float grey=dot(col,vec3(.2126,.7152,.0722));
+      vec3 tint=uAccent*(grey*1.16+.04);
+      col=mix(col,tint,glow*.90);
+    }
     // Escurece o interior da boca durante a fala, conservando o wireframe.
     float inner=ellipse(vUv,vec2(.417,.340),vec2(.076,.008))*uMouth;
     col *= 1.0-inner*.31;
@@ -78,13 +88,15 @@ export function createHologram(canvas) {
   camera.position.z=3;
   const uniforms = {
     uImage:{value:null}, uMouth:{value:0}, uBlink:{value:0},
-    uBrow:{value:0}, uEnergy:{value:1}, uTiltX:{value:0},uTiltY:{value:0}
+    uBrow:{value:0}, uEnergy:{value:1}, uTiltX:{value:0},uTiltY:{value:0},
+    uAccent:{value:new THREE.Color(0x55d6ef)}, uVisualMode:{value:0}
   };
   // Muitos segmentos: permite a pequena deformação espacial do rosto.
   const geometry = new THREE.PlaneGeometry(1,1,48,40);
   const material = new THREE.ShaderMaterial({uniforms,vertexShader:VERTEX,fragmentShader:FRAGMENT});
   const plane = new THREE.Mesh(geometry,material);
   scene.add(plane);
+  const accentColors=Object.freeze({original:0x55d6ef,'humanoid-blue':0x408fff,'sentinel-cyan':0x48f4df,'phantom-violet':0xa883ff,'titan-silver':0xcbd9ec,'fusion-amber':0xffbd63});
   let disposed=false, ready=false, state='idle', level=0, smoothLevel=0;
   let targetX=0,targetY=0,frameId=0,previous=0,nextBlink=3,blinkStart=-10;
   let blinkCounter=0;
@@ -148,6 +160,7 @@ export function createHologram(canvas) {
   canvas.dataset.hologram='imagem-oficial-animada-v1';
   canvas.dataset.visualReference='holograma-oficial.jpg';
   return {
+    setPreset(name){if(!Object.hasOwn(accentColors,name))return false;uniforms.uAccent.value.setHex(accentColors[name]);uniforms.uVisualMode.value=name==='original'?0:1;canvas.dataset.avatarPreset=name;return true;},
     setState(s){state=s},
     setLevel(v){level=Number.isFinite(v)?Math.max(0,v):0},
     dispose(){if(disposed)return;disposed=true;cancelAnimationFrame(frameId);
