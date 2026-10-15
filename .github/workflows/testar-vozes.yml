@@ -1,15 +1,19 @@
-name: Testar vozes e avatares ENZO
+name: ENZO — vozes, avatares e widgets
 on:
   push:
     branches: ['feature/vozes-masculinas-015']
     paths:
       - 'core/voice-catalog.cjs'
       - 'core/avatar-presets.cjs'
+      - 'core/dashboard-metrics.cjs'
+      - 'core/local-calendar.cjs'
       - 'voice/worker.py'
       - 'ui/**'
       - 'desktop/**'
       - 'tests/voice-catalog.test.cjs'
       - 'tests/avatar-presets.test.cjs'
+      - 'tests/dashboard-metrics.test.cjs'
+      - 'tests/local-calendar.test.cjs'
       - '.github/workflows/testar-vozes.yml'
   workflow_dispatch:
 permissions:
@@ -29,10 +33,12 @@ jobs:
         run: |
           node --check core/voice-catalog.cjs
           node --check core/avatar-presets.cjs
+          node --check core/dashboard-metrics.cjs
+          node --check core/local-calendar.cjs
           node --check desktop/main.cjs
           node --check desktop/preload.cjs
           python -m py_compile voice/worker.py
-          node --test tests/voice-catalog.test.cjs tests/avatar-presets.test.cjs
+          node --test tests/voice-catalog.test.cjs tests/avatar-presets.test.cjs tests/dashboard-metrics.test.cjs tests/local-calendar.test.cjs
       - name: Verificar montagem da interface
         run: |
           npm ci
