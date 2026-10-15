@@ -1,0 +1,29 @@
+name: Validar central ENZO
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  teste-codigo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependências
+        run: npm ci --no-audit --no-fund
+      - name: Testes de unidade
+        run: npm test
+      - name: Compilar interface
+        run: npm run bundle
+      - name: Validar sintaxe dos módulos
+        run: |
+          node --check core/agenda.cjs
+          node --check core/system-monitor.cjs
+          node --check desktop/main.cjs
+          node --check desktop/preload.cjs
