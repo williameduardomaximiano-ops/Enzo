@@ -1,0 +1,37 @@
+/* Nova central ENZO — sem holograma antigo, sem métricas inventadas. */
+.workspace{height:auto;min-height:400px;grid-template-columns:minmax(300px,0.9fr) minmax(330px,1.1fr)}
+.workspace .presence{min-height:430px}
+.avatar-slot{height:100%;min-height:430px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 24px 88px;text-align:center;position:relative;isolation:isolate}
+.avatar-slot::before{content:'';position:absolute;z-index:-1;width:240px;height:240px;border:1px solid rgba(89,213,232,.25);border-radius:50%;box-shadow:0 0 70px 14px rgba(33,154,181,.1),inset 0 0 60px rgba(20,84,110,.18);background:radial-gradient(circle at 50% 50%,rgba(59,176,205,.14),transparent 67%);}
+.avatar-slot::after{content:'';position:absolute;z-index:-1;width:175px;height:175px;border:1px dashed rgba(125,211,237,.35);border-radius:50%;animation:avatar-ring 30s linear infinite}
+.avatar-slot strong{font-size:16px;letter-spacing:2px;color:#c2f4ff;margin-top:30px}
+.avatar-slot p{font-size:12px;line-height:1.6;color:#92adc7;max-width:275px}
+.avatar-audio-level{width:110px;height:3px;margin-top:8px;background:#83ebff;transform-origin:left;transition:transform .1s}
+.avatar-slot[data-state="paused"]{filter:grayscale(.9)}
+@keyframes avatar-ring{to{transform:rotate(360deg)}}
+.dashboard-widgets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:18px}
+.dashboard-panel{background:#101b2a;border:1px solid #27384d;border-radius:16px;padding:19px;min-height:150px}
+.dashboard-panel h3{font-size:15px;margin:8px 0 14px;font-weight:500}
+.dashboard-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.dashboard-stats div{min-width:0;background:#0a1421;border-radius:10px;padding:12px 10px}
+.dashboard-stats small{display:block;color:#7b9cb4;font-size:10px;margin-bottom:9px}
+.dashboard-stats strong{font-weight:600;font-size:16px;overflow-wrap:anywhere}
+#dash-clock{font-size:32px;font-variant-numeric:tabular-nums}
+#dash-today{text-transform:capitalize}
+.calendar-header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.calendar-header h3{text-transform:capitalize;margin:0}
+.calendar-header button{padding:5px 11px}
+.calendar-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:16px}
+.calendar-weekday{text-align:center;font-size:9px;color:#83a1b7;padding:4px 0}
+.calendar-day{padding:7px 0;border:1px solid transparent;border-radius:8px;background:#152437;font-size:11px}
+.calendar-day.selected{border-color:#80e5e7;background:#20495c}
+.calendar-day.has-event::after{content:'•';display:block;color:#87f8cb;height:4px;line-height:4px}
+.agenda-items{max-height:165px;overflow:auto;margin-bottom:12px}
+.agenda-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid #2b3c4e;font-size:12px}
+.agenda-item button{font-size:10px;padding:5px 8px}
+.agenda-form{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.agenda-form input{min-width:0;width:100%;background:#0a1320;border:1px solid #2e435b;border-radius:8px;color:#e1ebf8;padding:10px}
+.agenda-form button{grid-column:1/-1}
+@media(max-width:1100px){.dashboard-widgets{grid-template-columns:1fr}.workspace{grid-template-columns:1fr}.workspace .presence{min-height:340px}.avatar-slot{min-height:340px}}
+@media(max-width:720px){.dashboard-stats{grid-template-columns:1fr 1fr}.agenda-form{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.avatar-slot::after{animation:none}}
