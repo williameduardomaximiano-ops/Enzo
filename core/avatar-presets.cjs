@@ -13,8 +13,8 @@ function validateAvatar(id){if(typeof id!=='string'||!byId(id))throw Error('Mode
 function avatarIntent(text){
  if(typeof text!=='string')return null;
  const t=text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.!?]/g,'').replace(/^\s*enzo[, ]*/,'').trim();
- const m=t.match(/^(?:mude|troque|coloque|use|selecion(e|a)|alter(e|a)) (?:o )?(?:visual|holograma|avatar|modelo)(?: (?:para|pro|pra))? (original|humanoide azul|sentinela ciano|fantasma violeta|titanio prata|fusao ambar)$/);
+ const m=t.match(/^(?:mude|muda|troque|troca|coloque|coloca|bota|use|usa|escolha|selecion(?:e|a)|alter(?:e|a)) (?:o |a )?(?:visual|holograma|avatar|modelo|aparencia)(?: (?:para|pro|pra))? (original|humanoide azul|sentinela ciano|fantasma violeta|titanio prata|fusao ambar)$/);
  const ids={'original':'original','humanoide azul':'humanoid-blue','sentinela ciano':'sentinel-cyan','fantasma violeta':'phantom-violet','titanio prata':'titan-silver','fusao ambar':'fusion-amber'};
- return m?{type:'avatar_select',avatar:ids[m[2]]}:null;
+ return m?{type:'avatar_select',avatar:ids[m[1]]}:null;
 }
 module.exports={AVATARS,byId,validateAvatar,avatarIntent};
