@@ -1,13 +1,15 @@
-name: Testar vozes ENZO
+name: Testar vozes e avatares ENZO
 on:
   push:
     branches: ['feature/vozes-masculinas-015']
     paths:
       - 'core/voice-catalog.cjs'
+      - 'core/avatar-presets.cjs'
       - 'voice/worker.py'
       - 'ui/**'
       - 'desktop/**'
       - 'tests/voice-catalog.test.cjs'
+      - 'tests/avatar-presets.test.cjs'
       - '.github/workflows/testar-vozes.yml'
   workflow_dispatch:
 permissions:
@@ -23,13 +25,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Checar sintaxe e lista de vozes
+      - name: Checar sintaxe, vozes e avatares
         run: |
           node --check core/voice-catalog.cjs
+          node --check core/avatar-presets.cjs
           node --check desktop/main.cjs
           node --check desktop/preload.cjs
           python -m py_compile voice/worker.py
-          node --test tests/voice-catalog.test.cjs
+          node --test tests/voice-catalog.test.cjs tests/avatar-presets.test.cjs
       - name: Verificar montagem da interface
         run: |
           npm ci
