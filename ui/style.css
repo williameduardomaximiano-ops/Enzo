@@ -11,3 +11,27 @@
 .avatar-name{color:#e8faff;font-size:12px;font-weight:700}
 .avatar-desc{font-size:10px;color:#8ab4ca;line-height:1.4}
 @media(prefers-reduced-motion:reduce){.avatar-card:hover{transform:none}}
+
+/* Widgets e agenda local do ENZO: os dados são consultados no processo principal. */
+.dashboard-widgets{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}
+.dashboard-widget h2{font-size:16px}
+.metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.metric-grid>div{padding:10px;border:1px solid #214058;border-radius:9px;background:#0a1522}
+.metric-grid small{display:block;font-size:9px;color:#8baac4}
+.metric-grid strong{display:block;margin-top:7px;font-size:19px;color:#86eaf2;font-variant-numeric:tabular-nums}
+.calendar-layout{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.calendar-toolbar{display:flex;align-items:center;justify-content:space-between;margin:14px 0}
+.calendar-toolbar button{padding:5px 14px;font-size:20px}
+.calendar-month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.calendar-weekday{font-size:10px;text-align:center;color:#75a6c1;padding:10px 0}
+.calendar-day{min-height:43px;padding:6px 4px;border-radius:7px;font-size:11px}
+.calendar-day.active{border-color:#7fe0fa;background:#173747}
+.calendar-day.has-event{box-shadow:inset 0 -3px #4bd4e6}
+.calendar-empty{min-height:43px}
+.calendar-events{display:grid;gap:7px;margin-top:14px}
+.calendar-event{display:flex;gap:8px;align-items:center;justify-content:space-between;border:1px solid #243c50;padding:9px;border-radius:8px;background:#0b1b29}
+.calendar-event span{line-height:1.5}
+.calendar-event button{padding:5px 9px}
+#agenda-today{font-size:12px;color:#bdcbdb;min-height:60px;line-height:1.6}
+@media(max-width:1150px){.metric-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:850px){.dashboard-widgets,.calendar-layout{grid-template-columns:1fr}}
