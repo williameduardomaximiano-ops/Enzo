@@ -44,3 +44,11 @@
 .cosmo-mission .button-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .cosmo-mission-log{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow-y:auto;background:#07101d;border:1px solid rgba(114,192,218,.22);border-radius:10px;padding:12px;font-size:12px}
 #mission-goal{width:100%;resize:vertical;min-height:112px}
+
+
+/* Mensagem sobre ausência da arte oficial: nunca esconder que imagem original não está no app. */
+.cosmo-gold-setup{position:absolute;z-index:5;top:27%;left:8%;right:8%;padding:18px 14px;text-align:center;border-radius:14px;border:1px solid rgba(231,176,62,.4);background:rgba(7,9,15,.94);color:#f4e5bf;box-shadow:0 8px 32px rgba(0,0,0,.35)}
+.cosmo-gold-setup strong{font-size:12px;letter-spacing:1.5px}
+.cosmo-gold-setup p{font-size:12px;line-height:1.6;color:#ead9b5;margin:12px 0}
+.cosmo-gold-setup button{background:#61471a;border:1px solid #c69c49;color:#fff3d7}
+.cosmo-gold-setup[hidden]{display:none!important}
