@@ -24,7 +24,13 @@
     </form>
     <p class="muted">Cada missão recebe pasta própria e arquivo BRIEFING.md. OpenCode CLI deve estar instalado no Windows. Execução gera log e termina em revisão; publicar exige etapa posterior.</p>
   </article>
-  <article class="card wide"><span class="eyebrow">HISTÓRICO VERIFICÁVEL</span><h2>Minhas missões</h2><div id="mission-list" class="cosmo-mission-list" aria-live="polite">Carregando missões...</div><pre id="mission-log" class="cosmo-mission-log" aria-live="polite">Sem execução nesta sessão.</pre></article>
+  <article class="card wide">
+  <span class="eyebrow">LEITURA LOCAL · ACESSIBILIDADE WINDOWS</span><h2>Janelas abertas</h2>
+  <p>Com sua autorização, o COSMO identifica os nomes das janelas atualmente abertas via UI Automation. Esta etapa ainda não lê botões, clica ou captura imagens.</p>
+  <button id="observe-windows" type="button">Consultar janelas (com permissão)</button>
+  <pre id="windows-result" class="cosmo-mission-log">Nenhuma consulta realizada.</pre>
+ </article>
+ <article class="card wide"><span class="eyebrow">HISTÓRICO VERIFICÁVEL</span><h2>Minhas missões</h2><div id="mission-list" class="cosmo-mission-list" aria-live="polite">Carregando missões...</div><pre id="mission-log" class="cosmo-mission-log" aria-live="polite">Sem execução nesta sessão.</pre></article>
 <article class="card wide">
   <span class="eyebrow">PROSPECÇÃO RESPONSÁVEL</span><h2>Mostrar prévia a uma empresa</h2>
   <p>Prepare a primeira mensagem personalizada para um potencial cliente. O COSMO abre apenas o rascunho no WhatsApp; você revisa e decide se envia. Use contatos obtidos legitimamente e respeite a preferência de quem não quer receber propostas.</p>
