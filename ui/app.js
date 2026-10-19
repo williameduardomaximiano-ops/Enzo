@@ -340,3 +340,19 @@ $('#prospecting-form').addEventListener('submit',async e=>{
   }
  }catch(err){$('#prospecting-note').textContent='Consulta indisponível: '+err.message;}
 });
+
+// Fonte de imagem configurável; preserva o arquivo JPEG original escolhido pelo usuário.
+async function loadGoldHologram(){
+ const uri=await invoke('hologramGet');
+ if(!uri)return;
+ if(!holo){$('#hologram-import-status').textContent='WebGL indisponível; mantenha o controle por texto.';return;}
+ await holo.setImage(uri);
+ $('#hologram-import-status').textContent='Imagem original preta e dourada carregada. O cérebro responde ao estado do microfone e da fala; a boca acompanha a amplitude do áudio (ainda não é sincronização por fonemas).';
+}
+$('#hologram-import').onclick=async()=>{
+ try{
+  const result=await invoke('hologramImport');
+  if(result.selected&&holo){await holo.setImage(result.image);$('#hologram-import-status').textContent='Imagem original carregada e guardada localmente. Movimentos suaves e intensidade cerebral ativados.';}
+ }catch(err){$('#hologram-import-status').textContent='Imagem: '+err.message;}
+};
+loadGoldHologram().catch(e=>notice('Holograma: '+e.message));
