@@ -266,3 +266,16 @@ nav button{transition:.25s}nav button:hover{translate:6px 0}
 @keyframes hud-chev-r{50%{right:6px;opacity:.6}}
 @keyframes hud-rise{from{opacity:0;translate:0 14px}}
 @media(prefers-reduced-motion:reduce){body::after,.readout,.a1,.spark,.redout,.bars,.chev,.card,.conversation,.voice-bar{animation:none!important}}
+
+/* ===== JARVIS v7: dados reais, pulso da voz e memória ===== */
+.vring{position:absolute;left:50%;top:46%;width:min(40%,220px);aspect-ratio:1;border-radius:50%;z-index:2;pointer-events:none;border:2px solid #e6f8ff;box-shadow:0 0 24px #4cc9ff,inset 0 0 24px #4cc9ff88;opacity:calc(var(--lvl,0) * 1.4);transform:translate(-50%,-50%) scale(calc(1 + var(--lvl,0) * .9));transition:transform .06s linear,opacity .06s linear}
+.core{filter:brightness(calc(1 + var(--lvl,0) * 1.2))}
+.bars.live i{animation:none;transition:height .6s ease}
+.spark.live polyline{animation:none;stroke-dasharray:none}
+.stream[data-live]{color:#bfeeffcc;font-size:9px}
+.memory{list-style:none;padding:0;margin:12px 0;display:grid;gap:6px;max-height:180px;overflow:auto}
+.memory li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--hud-line);border-left:2px solid var(--hud);background:#041434cc;font-size:12px}
+.memory li.muted{border-left-color:var(--hud-line)}
+.memory .icon{padding:0 6px;font-size:16px;line-height:1}
+.quick{flex-wrap:wrap}
+.stream[data-live]{top:auto;bottom:118px;padding:8px 10px;background:#041330d9!important;border:1px solid var(--hud-line)!important;border-left:2px solid var(--hud)!important;line-height:1.7}

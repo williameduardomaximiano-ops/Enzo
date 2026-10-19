@@ -31,7 +31,7 @@
       requestAnimationFrame(loop)})()}
   const st=document.getElementById('stream');
   if(st){const hex=()=>Math.floor(Math.random()*0xffffff).toString(16).toUpperCase().padStart(6,'0');let lines=[];
-    setInterval(()=>{lines.push(`0x${hex()} ${hex()} ${['SYNC','OK','LINK','SCAN','CORE'][Math.random()*5|0]}`);if(lines.length>7)lines.shift();st.textContent=lines.join('\n')},350)}
+    setInterval(()=>{if(st.dataset.live)return;lines.push(`0x${hex()} ${hex()} ${['SYNC','OK','LINK','SCAN','CORE'][Math.random()*5|0]}`);if(lines.length>7)lines.shift();st.textContent=lines.join('\n')},350)}
 })();
 // Paralaxe: o HUD acompanha o mouse.
 (()=>{if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;const p=document.querySelector('.presence');if(!p)return;

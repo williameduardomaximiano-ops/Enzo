@@ -62,3 +62,14 @@ Leia `docs/ATUALIZACOES.md`. Nenhuma chave privada está incluída. Não basta a
 Dados ficam no diretório Electron `userData` do usuário, normalmente `%APPDATA%\enzo-assistente`. Logs guardam tipo de evento, sem áudio ou texto de conversa. Histórico é opcional e sem criptografia; não dite senhas. Desinstalar preserva os dados.
 
 Código ENZO sob GPL-3.0-or-later. Consulte `LICENSE` e `third-party/NOTICE.md`. O pacote não cobra por APIs; internet, eletricidade e eventuais serviços escolhidos pelo usuário têm custos próprios.
+
+## Protocolo JARVIS
+
+- **Palavra de ativação** (Configuração → Protocolo JARVIS, desligada por padrão): o microfone fica aberto e o ENZO só responde a frases que começam com “Enzo” (ou “Jarvis”). Dizer só “Enzo” faz ele responder “Pois não, senhor?” e ouvir o próximo pedido por 8 segundos. Tudo é reconhecido localmente; o resto é descartado.
+- **Personalidade**: trata você por “senhor”, responde curto para a voz e com ironia leve.
+- **Memória**: “Enzo, lembre que…”, “o que você lembra de mim?”, “esqueça …”, “esqueça tudo”. Guardada com a criptografia do sistema (`memory.enc`) e editável na Configuração.
+- **Lembretes, timers e alarmes**: “me lembre de … em 10 minutos / às 15h30”, “timer de 5 minutos”, “alarme para as 7h”, “quais são meus lembretes?”. Avisam por voz, na conversa e com notificação do Windows.
+- **Clima**: “como está o tempo (em Curitiba)?”, usando a cidade salva e o Open-Meteo (sem chave).
+- **Mídia**: aumentar/diminuir volume, silenciar, tocar/pausar, próxima/anterior (teclas multimídia do Windows).
+- **Status do sistema**: CPU, memória e tempo ligado, por voz e no HUD em tempo real.
+- **Proatividade**: saudação ao iniciar, lembretes e aviso de bateria abaixo de 20%.

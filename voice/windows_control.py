@@ -8,6 +8,14 @@ def run(action):
     class LASTINPUTINFO(ctypes.Structure): _fields_=[('cbSize',wintypes.UINT),('dwTime',wintypes.DWORD)]
     def last():
         x=LASTINPUTINFO();x.cbSize=ctypes.sizeof(x);user.GetLastInputInfo(ctypes.byref(x));return x.dwTime
+    if action['type']=='media':
+        # Teclas multimídia do Windows: não dependem da janela em foco nem digitam texto.
+        mapping={'volume_up':0xAF,'volume_down':0xAE,'mute':0xAD,'play_pause':0xB3,'next':0xB0,'previous':0xB1}
+        v=mapping.get(action.get('key'))
+        if v is None:raise ValueError('Tecla de mídia bloqueada')
+        for _ in range(5 if action['key'] in ('volume_up','volume_down') else 1):
+            user.keybd_event(v,0,0,0);user.keybd_event(v,0,2,0);time.sleep(0.02)
+        return {'ok':True}
     original=last();target=user.GetForegroundWindow()
     # Count down lets the owner choose the target. Abort on activity after this point.
     def check():

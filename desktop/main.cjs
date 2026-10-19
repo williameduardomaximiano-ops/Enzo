@@ -1,8 +1,8 @@
-const {app,BrowserWindow,ipcMain,dialog,shell,globalShortcut,session,Tray,Menu,nativeImage,safeStorage}=require('electron');
+const {app,BrowserWindow,ipcMain,dialog,shell,globalShortcut,session,Tray,Menu,nativeImage,safeStorage,Notification}=require('electron');
 const path=require('node:path'),fs=require('node:fs'),os=require('node:os');const {spawn}=require('node:child_process');
-const {Gate,APPS,cleanText}=require('../core/policy.cjs');const {intent}=require('../core/intent.cjs');const {WorkMode}=require('../core/workmode.cjs');const {ModeStore,VoiceModes,parseTargets,normalizeName,LABELS}=require('../core/modes.cjs');const llm=require('../core/llm.cjs');const {Voice}=require('../core/voice.cjs');const {GitHubPrivateUpdater}=require('../updater/github-private.cjs');const {OWNER,REPO,PUBLIC_KEY_PEM}=require('../core/update-channel.cjs');const {Companion}=require('../core/android.cjs');const vaultLib=require('../core/vault.cjs');
-let win,tray,voice,updater,companion,workMode,modeStore,voiceModes,root,python,dataDir,settings,controller,busy=false,epoch=0,updateTimer,controlProcess;const gate=new Gate();const history=[];let state='idle';
-const defaults={remember:false,continuous:false,compact:false,provider:'auto',groqModel:'openai/gpt-oss-120b',geminiModel:'gemini-3.5-flash',autoUpdate:true,micDevice:'',micSensitivity:'normal',micNoise:true,micEcho:true,micGain:true};
+const {Gate,APPS,cleanText}=require('../core/policy.cjs');const {intent}=require('../core/intent.cjs');const {WorkMode}=require('../core/workmode.cjs');const {ModeStore,VoiceModes,parseTargets,normalizeName,LABELS}=require('../core/modes.cjs');const llm=require('../core/llm.cjs');const {Voice}=require('../core/voice.cjs');const {GitHubPrivateUpdater}=require('../updater/github-private.cjs');const {OWNER,REPO,PUBLIC_KEY_PEM}=require('../core/update-channel.cjs');const {Companion}=require('../core/android.cjs');const vaultLib=require('../core/vault.cjs');const {SecureStore,Memory,Reminders,jarvisIntent,sysinfo,statusReport,greeting,weather,describeDelay,formatAt,MEDIA}=require('../core/jarvis.cjs');
+let memory,reminders,win,tray,voice,updater,companion,workMode,modeStore,voiceModes,root,python,dataDir,settings,controller,busy=false,epoch=0,updateTimer,controlProcess;const gate=new Gate();const history=[];let state='idle';
+const defaults={remember:false,continuous:false,compact:false,provider:'auto',groqModel:'openai/gpt-oss-120b',geminiModel:'gemini-3.5-flash',autoUpdate:true,micDevice:'',micSensitivity:'normal',micNoise:true,micEcho:true,micGain:true,wake:false,greet:true,city:''};
 let apiKeys=vaultLib.emptyVault();
 function emit(type,data={}){win?.webContents.send('event',{type,...data});}
 function setState(s){state=s;emit('state',{state:s});}
@@ -13,27 +13,48 @@ function vaultFile(){return path.join(dataDir,'vault.enc');}
 function loadVault(){let raw=null;try{const b=Buffer.from(fs.readFileSync(vaultFile(),'utf8'),'base64');raw=JSON.parse(safeStorage.decryptString(b));}catch{try{audit('vault-load-failed',{stage:'open'});}catch{}apiKeys=vaultLib.emptyVault();return;}const next=vaultLib.emptyVault();for(const p of vaultLib.PROVIDERS){try{if(raw&&typeof raw[p]==='string'&&raw[p])next[p]=vaultLib.validateKey(raw[p]);}catch{try{audit('vault-load-failed',{stage:p});}catch{}}}apiKeys=next;}
 function persistVault(){if(!safeStorage.isEncryptionAvailable())throw Error('Criptografia indisponível neste sistema. Chave não salva.');const tmp=vaultFile()+'.tmp';fs.writeFileSync(tmp,safeStorage.encryptString(JSON.stringify(apiKeys)).toString('base64'));try{const back=JSON.parse(safeStorage.decryptString(Buffer.from(fs.readFileSync(tmp,'utf8'),'base64')));if(vaultLib.statusOf(back).groq!==vaultLib.statusOf(apiKeys).groq)throw Error('verificação');}catch{try{fs.rmSync(tmp,{force:true});}catch{}throw Error('Falha ao conferir o cofre. Chave não salva.');}fs.rmSync(vaultFile(),{force:true});fs.renameSync(tmp,vaultFile());}
 function clearSecrets(){apiKeys=vaultLib.emptyVault();}
-async function authorize(action){const pending=gate.propose(action);setState('permission');const a=pending.action;const detail=a.type==='open_app'?APPS[a.app]:a.type==='open_url'?a.url:a.type==='type_text'?`Colar este texto na janela que você escolher (substitui a área de transferência):\n${a.text}`:`Atalho: ${a.key}`;
+async function authorize(action){const pending=gate.propose(action);setState('permission');const a=pending.action;const detail=a.type==='media'?`Mídia: ${MEDIA[a.key]}`:a.type==='open_app'?APPS[a.app]:a.type==='open_url'?a.url:a.type==='type_text'?`Colar este texto na janela que você escolher (substitui a área de transferência):\n${a.text}`:`Atalho: ${a.key}`;
  const result=await dialog.showMessageBox(win,{type:'question',title:'ENZO • Permissão',message:'Autorizar esta ação?',detail,buttons:['Cancelar','Autorizar uma vez'],defaultId:0,cancelId:0,noLink:true});const allowed=gate.consume(pending.id,result.response===1);if(!allowed)return 'Ação cancelada.';audit('action-approved',{action:allowed.type});setState('executing');
  if(allowed.type==='open_app'){
  if(process.platform!=='win32')throw Error('Este comando exige Windows.');
  const exe=path.join(process.env.SystemRoot||'C:\\Windows',allowed.app==='explorador'?'':'System32',APPS[allowed.app]);
  await new Promise((resolve,reject)=>{const p=spawn(exe,[],{detached:true,stdio:'ignore',windowsHide:false});p.once('error',reject);p.once('spawn',()=>{p.unref();resolve()})});
- }else if(allowed.type==='open_url'){await shell.openExternal(allowed.url);}else{
+ }else if(allowed.type==='open_url'){await shell.openExternal(allowed.url);}else if(allowed.type==='media'){await runMedia(allowed.key);}else{
  if(process.platform!=='win32')throw Error('Este comando exige Windows.');emit('notice',{text:'Selecione a janela de destino. Ação em 5 segundos. Ctrl+Alt+Esc cancela.'});win.minimize();const token=epoch;await new Promise(r=>setTimeout(r,5000));if(epoch!==token||gate.paused)throw Error('Ação interrompida.');
  await new Promise((resolve,reject)=>{const p=spawn(python,['-u',path.join(root,'voice','windows_control.py')],{windowsHide:true,stdio:['pipe','pipe','pipe']});controlProcess=p;let out='';p.stdout.on('data',x=>out+=x);p.on('error',reject);p.on('exit',code=>{controlProcess=null;code===0?resolve():reject(Error('Ação interrompida ou falhou. '+out.slice(0,300)))});p.stdin.end(JSON.stringify(allowed));});
  }
  audit('action-completed',{action:allowed.type});return 'Comando executado.';
 }
+function runMedia(key){if(process.platform!=='win32')return Promise.reject(Error('Controle de mídia exige Windows.'));return new Promise((resolve,reject)=>{const p=spawn(python,['-u',path.join(root,'voice','windows_control.py')],{windowsHide:true,stdio:['pipe','pipe','pipe']});let out='';p.stdout.on('data',x=>out+=x);p.on('error',reject);p.on('exit',code=>code===0?resolve():reject(Error('Falha no controle de mídia. '+out.slice(0,200))));p.stdin.end(JSON.stringify({type:'media',key}));});}
+const MEDIA_SAY={volume_up:'Volume aumentado, senhor.',volume_down:'Volume reduzido, senhor.',mute:'Som alternado, senhor.',play_pause:'Feito, senhor.',next:'Próxima faixa, senhor.',previous:'Faixa anterior, senhor.'};
+function remindSay(r){return r.timer?'Senhor, o tempo do seu timer acabou.':r.alarm?`Senhor, são ${formatAt(r.at)}. Seu alarme.`:`Senhor, um lembrete: ${r.text}.`;}
+async function handleJarvis(j,source,token){
+ if(j.type==='memory_add'){const saved=memory.add(j.text);audit('memory-added');return saved?'Anotado, senhor. Vou me lembrar disso.':'Anotado, senhor, mas só até fechar o ENZO: a criptografia do sistema não está disponível.';}
+ if(j.type==='memory_list'){const l=memory.list();return l.length?`Eu sei que ${l.slice(-10).join('; ')}.`:'Ainda não guardei nada sobre o senhor. Diga, por exemplo: Enzo, lembre que eu prefiro café sem açúcar.';}
+ if(j.type==='memory_clear'){if(source!=='desktop')throw Error('Apagar a memória só é permitido no computador.');const r=await dialog.showMessageBox(win,{type:'warning',message:'Apagar toda a memória do ENZO?',detail:'Tudo o que você pediu para ele lembrar será apagado deste computador.',buttons:['Cancelar','Apagar memória'],defaultId:0,cancelId:0});if(r.response!==1)return 'Mantive a memória, senhor.';memory.clear();audit('memory-cleared');return 'Memória apagada, senhor. Começamos do zero.';}
+ if(j.type==='memory_forget'){const n=memory.forget(j.text);audit('memory-forget',{count:n});return n?`Esquecido, senhor. Removi ${n} lembrança${n>1?'s':''}.`:'Não encontrei nada sobre isso na minha memória, senhor.';}
+ if(j.type==='reminder_add'){const delay=j.at-Date.now();reminders.add(j.text||'seu lembrete',j.at);audit('reminder-added',{kind:j.timer?'timer':j.alarm?'alarm':'reminder'});emit('hud',{});
+  if(j.timer)return `Timer de ${describeDelay(delay)} iniciado, senhor.`;if(j.alarm)return `Alarme definido para as ${formatAt(j.at)}, senhor.`;
+  return `Certo, senhor. ${delay<3600000?`Em ${describeDelay(delay)}`:`Às ${formatAt(j.at)}`} vou lembrá-lo de ${j.text||'seu compromisso'}.`;}
+ if(j.type==='reminder_unclear')return 'Para quando, senhor? Diga, por exemplo: me lembre de ligar para o João em 10 minutos, ou às 15 horas.';
+ if(j.type==='reminder_list'){const l=reminders.list();return l.length?`O senhor tem ${l.length} lembrete${l.length>1?'s':''}: `+l.slice(0,5).map(r=>`${r.text.replace(/\.$/,'')} às ${formatAt(r.at)}`).join('; ')+'.':'Nenhum lembrete pendente, senhor.';}
+ if(j.type==='reminder_clear'){reminders.clear();emit('hud',{});return 'Todos os lembretes foram cancelados, senhor.';}
+ if(j.type==='weather')return await weather(j.city||settings.city,fetch,controller.signal);
+ if(j.type==='system_status')return statusReport(sysinfo(),{reminders:reminders.list().length});
+ if(j.type==='media'){if(source!=='desktop')return await authorize({type:'media',key:j.key});await runMedia(j.key);audit('media',{key:j.key});return MEDIA_SAY[j.key];}
+ if(j.type==='greeting')return greeting(new Date());
+ throw Error('Comando desconhecido.');
+}
 async function checkUpdate(){const result=await updater.check();emit('update',{update:result});audit('update-checked',{found:result?result.version:null});return result?`Versão ${result.version} disponível. ${result.notes}`:'Você está na versão mais recente publicada.';}
-function backupUserData(tag){const dest=path.join(dataDir,'updates',`backup-${tag}-${Date.now()}`);fs.mkdirSync(dest,{recursive:true});for(const f of ['settings.json','vault.enc','modes.json','history.json','audit.jsonl']){try{fs.copyFileSync(path.join(dataDir,f),path.join(dest,f));}catch{}}return dest;}
+function backupUserData(tag){const dest=path.join(dataDir,'updates',`backup-${tag}-${Date.now()}`);fs.mkdirSync(dest,{recursive:true});for(const f of ['settings.json','vault.enc','modes.json','history.json','audit.jsonl','memory.enc','reminders.enc']){try{fs.copyFileSync(path.join(dataDir,f),path.join(dest,f));}catch{}}return dest;}
 async function installUpdate(){if(!updater.available)throw Error('Nenhuma atualização verificada disponível. Verifique primeiro.');const m=updater.available;const answer=await dialog.showMessageBox(win,{type:'question',message:`Instalar ENZO ${m.version}?`,detail:m.notes+'\nO ENZO será fechado após abrir o instalador. O Windows poderá pedir confirmação. Seus dados serão preservados.',buttons:['Cancelar','Instalar'],cancelId:0,defaultId:0});if(answer.response!==1)return 'Instalação cancelada.';const token=epoch;setState('updating');const file=await updater.download();if(token!==epoch)throw Error('Atualização cancelada antes da execução.');const backup=backupUserData(m.version);audit('update-backup',{dest:backup});const err=await shell.openPath(file);if(err)throw Error(err);app.quit();return 'Instalador aberto.';}
 async function handleChat(value,source='desktop'){
  const text=cleanText(value);if(intent(text).type==='stop'){stop();return {say:'Pausado. Microfone e controle desligados.'};}
  if(gate.paused)throw Error('ENZO pausado. Clique em Retomar no computador.');if(busy)throw Error('Já estou processando um pedido. Você pode interromper.');busy=true;const token=epoch;controller=new AbortController();setState('thinking');
  try{
- const i=intent(text);let result;
- if(i.type==='time')result={say:`Agora são ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}.`};
+ const i=intent(text);const j=jarvisIntent(text);let result;
+ if(j)result={say:await handleJarvis(j,source,token)};
+ else if(i.type==='time')result={say:`Agora são ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}.`};
  else if(i.type==='updates')result={say:await checkUpdate()};
  else if(i.type==='changelog')result={say:updater.available?.notes||'Nenhuma atualização nova verificada. Esta versão inclui voz local, holograma e controle supervisionado.'};
  else if(i.type==='install_update'){if(source!=='desktop')throw Error('Instalação só pode começar no computador.');result={say:await installUpdate()};}
@@ -70,7 +91,7 @@ async function handleChat(value,source='desktop'){
   result={say};
  }
  else if(i.type==='action')result={say:await authorize(i.action)};
- else{result=await llm.chatAuto([...history,{role:'user',content:text}],settings,apiKeys,controller.signal);if(epoch!==token)throw Error('Pedido cancelado.');if(result.action)result={say:await authorize(result.action)};}
+ else{result=await llm.chatAuto([...history,{role:'user',content:text}],{...settings,memory:memory.context(),now:new Date().toLocaleString('pt-BR',{dateStyle:'full',timeStyle:'short'})},apiKeys,controller.signal);if(epoch!==token)throw Error('Pedido cancelado.');if(result.action)result={say:await authorize(result.action)};}
  if(epoch!==token)throw Error('Pedido cancelado.');history.push({role:'user',content:text},{role:'assistant',content:result.say});if(history.length>24)history.splice(0,history.length-24);if(settings.remember)fs.writeFileSync(path.join(dataDir,'history.json'),JSON.stringify(history));audit('request-completed',{source});if(source==='android')emit('remote',{text,reply:result.say});return result;
  }catch(e){audit('request-failed',{source});throw e;}finally{if(token===epoch){busy=false;setState(gate.paused?'paused':'idle');}}
 }
@@ -80,6 +101,9 @@ const single=app.requestSingleInstanceLock();if(!single)app.quit();else app.when
  dataDir=app.getPath('userData');workMode=new WorkMode();modeStore=new ModeStore(dataDir);voiceModes=new VoiceModes(modeStore);root=app.isPackaged?process.resourcesPath:path.join(__dirname,'..');const runtime=app.isPackaged?path.join(root,'runtime'):path.join(root,'resources');python=process.platform==='win32'?path.join(runtime,'python','python.exe'):(process.env.ENZO_PYTHON||'python3');
  try{settings={...defaults,...JSON.parse(fs.readFileSync(path.join(dataDir,'settings.json'),'utf8'))}}catch{settings={...defaults}};
   loadVault();
+  const crypt={available:()=>safeStorage.isEncryptionAvailable(),encrypt:t=>safeStorage.encryptString(t),decrypt:b=>safeStorage.decryptString(b)};
+  memory=new Memory(new SecureStore(path.join(dataDir,'memory.enc'),crypt));
+  reminders=new Reminders(new SecureStore(path.join(dataDir,'reminders.enc'),crypt),r=>{const text=remindSay(r);audit('reminder-fired');emit('proactive',{text,kind:'reminder'});emit('hud',{});try{if(Notification.isSupported())new Notification({title:'ENZO',body:text}).show();}catch{}win?.flashFrame(true);});
   try{if(!vaultLib.ORDER.includes(settings.provider)){settings.provider='auto';saveSettings();}}catch{}
  if(settings.remember){try{history.push(...JSON.parse(fs.readFileSync(path.join(dataDir,'history.json'),'utf8')).slice(-24))}catch{}}
  voice=new Voice(python,path.join(root,'voice','worker.py'),path.join(runtime,'models'));
@@ -96,16 +120,21 @@ const single=app.requestSingleInstanceLock();if(!single)app.quit();else app.when
  ipc('transcribe',async audio=>{if(gate.paused)throw Error('Microfone pausado.');if(typeof audio!=='string'||audio.length>3000000)throw Error('Áudio inválido.');return voice.call('transcribe',{audio})});
  ipc('speak',async text=>{if(gate.paused)throw Error('Voz pausada.');return voice.call('speak',{text:cleanText(text,6000)})});
  ipc('stop',()=>{stop();return true});ipc('resume',()=>{gate.resume();setState('idle');return true});
- ipc('configure',cfg=>{if(!cfg||typeof cfg!=='object')throw Error('Configuração inválida.');if(typeof cfg.provider==='string')settings.provider=vaultLib.validateOrder(cfg.provider);for(const k of ['groqModel','geminiModel'])if(typeof cfg[k]==='string'&&/^[-\w.:/]{1,100}$/.test(cfg[k]))settings[k]=cfg[k];if(typeof cfg.micDevice==='string'&&cfg.micDevice.length<=500)settings.micDevice=cfg.micDevice;if(typeof cfg.micSensitivity==='string'&&['alta','normal','baixa'].includes(cfg.micSensitivity))settings.micSensitivity=cfg.micSensitivity;for(const k of ['remember','continuous','autoUpdate','micNoise','micEcho','micGain'])if(typeof cfg[k]==='boolean')settings[k]=cfg[k];if(!settings.remember)fs.rmSync(path.join(dataDir,'history.json'),{force:true});saveSettings();return settings});
+ ipc('configure',cfg=>{if(!cfg||typeof cfg!=='object')throw Error('Configuração inválida.');if(typeof cfg.provider==='string')settings.provider=vaultLib.validateOrder(cfg.provider);for(const k of ['groqModel','geminiModel'])if(typeof cfg[k]==='string'&&/^[-\w.:/]{1,100}$/.test(cfg[k]))settings[k]=cfg[k];if(typeof cfg.micDevice==='string'&&cfg.micDevice.length<=500)settings.micDevice=cfg.micDevice;if(typeof cfg.micSensitivity==='string'&&['alta','normal','baixa'].includes(cfg.micSensitivity))settings.micSensitivity=cfg.micSensitivity;if(typeof cfg.city==='string'&&cfg.city.length<=80)settings.city=cfg.city.trim();for(const k of ['remember','continuous','autoUpdate','micNoise','micEcho','micGain','wake','greet'])if(typeof cfg[k]==='boolean')settings[k]=cfg[k];if(!settings.remember)fs.rmSync(path.join(dataDir,'history.json'),{force:true});saveSettings();return settings});
  ipc('vault-set',cfg=>{if(!cfg||typeof cfg!=='object')throw Error('Dados inválidos.');const p=vaultLib.validateProvider(cfg.provider);if(typeof cfg.key==='string'&&cfg.key.trim()===''){apiKeys[p]='';persistVault();audit('vault-cleared',{provider:p});return vaultLib.statusOf(apiKeys);}apiKeys[p]=vaultLib.validateKey(cfg.key);persistVault();audit('vault-updated',{provider:p});return vaultLib.statusOf(apiKeys)});
  ipc('vault-status',()=>({configured:vaultLib.statusOf(apiKeys),encryption:safeStorage.isEncryptionAvailable()}));
  ipc('vault-clear',provider=>{const p=vaultLib.validateProvider(provider);apiKeys[p]='';persistVault();audit('vault-cleared',{provider:p});return vaultLib.statusOf(apiKeys)});
  ipc('clear-history',()=>{history.length=0;fs.rmSync(path.join(dataDir,'history.json'),{force:true});return true});
+ ipc('sysinfo',()=>{const next=reminders.list()[0];return {...sysinfo(),reminders:reminders.list().length,next:next?{text:next.text,at:next.at}:null,memories:memory.list().length}});
+ ipc('greeting',()=>greeting(new Date()));
+ ipc('memory-list',()=>({facts:memory.list(),persistent:safeStorage.isEncryptionAvailable()}));
+ ipc('memory-delete',index=>{memory.remove(index);audit('memory-deleted');return memory.list()});
+ ipc('memory-clear',()=>{memory.clear();audit('memory-cleared');return []});
  ipc('check-update',checkUpdate);ipc('install-update',installUpdate);
  ipc('android',async enabled=>{if(enabled!==true){companion.stop();return null;}const r=await dialog.showMessageBox(win,{type:'warning',message:'Ativar conexão com Android nesta rede?',detail:'Use somente uma rede Wi-Fi privada e confiável. Esta conexão local usa HTTP, sem criptografia de transporte. Não envie senhas ou dados sensíveis. Os comandos de controle exigem aprovação no PC.',buttons:['Cancelar','Ativar'],defaultId:0,cancelId:0});if(r.response!==1)return null;return companion.start();});
  ipc('window',mode=>{if(mode==='compact'){settings.compact=!settings.compact;win.setAlwaysOnTop(settings.compact);win.setSize(settings.compact?440:1160,settings.compact?600:780);emit('compact',{enabled:settings.compact});return settings.compact;}if(mode==='minimize')win.minimize();return true});
  if(settings.autoUpdate!==false){updateTimer=setInterval(()=>updater.check().then(update=>emit('update',{update})).catch(()=>{}),6*3600000);setTimeout(()=>updater.check().then(update=>emit('update',{update})).catch(e=>emit('notice',{text:'Atualizações: '+e.message})),15000);}
 });
-app.on('before-quit',()=>{clearInterval(updateTimer);voice?.stop();companion?.stop();controller?.abort();controlProcess?.kill();clearSecrets();globalShortcut.unregisterAll()});app.on('window-all-closed',()=>app.quit());
+app.on('before-quit',()=>{clearInterval(updateTimer);reminders?.stop();voice?.stop();companion?.stop();controller?.abort();controlProcess?.kill();clearSecrets();globalShortcut.unregisterAll()});app.on('window-all-closed',()=>app.quit());
 
 app.on('second-instance',()=>{if(win){win.restore();win.show();win.focus();}});
