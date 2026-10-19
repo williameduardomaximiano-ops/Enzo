@@ -1,7 +1,7 @@
 name: COSMO — identidade, vozes, avatares e widgets
 on:
   push:
-    branches: ['feature/vozes-masculinas-015', 'feature/cosmo-rename', 'feature/cosmo-missoes-autonomia', 'feature/cosmo-017-capabilities']
+    branches: ['feature/vozes-masculinas-015', 'feature/cosmo-rename', 'feature/cosmo-missoes-autonomia', 'feature/cosmo-017-capabilities', 'fix/cosmo-018-updater-packaging']
     paths:
       - 'core/voice-catalog.cjs'
       - 'core/assistant-identity.cjs'
@@ -21,6 +21,9 @@ on:
       - 'android/**'
       - 'package.json'
       - 'scripts/installer.nsi'
+      - 'scripts/verify-packaged.cjs'
+      - 'tests/packaging.test.cjs'
+      - 'updater/**'
       - 'scripts/sign-release.cjs'
       - 'core/avatar-presets.cjs'
       - 'core/dashboard-metrics.cjs'
@@ -69,6 +72,7 @@ jobs:
           node --check core/osm-prospecting.cjs
           node --check core/vercel-preview.cjs
           node --check scripts/sign-release.cjs
+          node --check scripts/verify-packaged.cjs
           node --check core/intent.cjs
           node --check core/mode-intents.cjs
           node --check core/voice-catalog.cjs
