@@ -1,7 +1,7 @@
 {
   "name": "enzo-assistente",
-  "version": "0.1.4",
-  "description": "ENZO — assistente pessoal local para Windows",
+  "version": "0.2.0",
+  "description": "COSMO — assistente pessoal para Windows",
   "main": "desktop/main.cjs",
   "author": "Ágape Studio",
   "license": "GPL-3.0-or-later",
@@ -30,6 +30,7 @@
       "desktop/**",
       "core/**",
       "ui/**",
+      "updater/**",
       "android/**",
       "package.json"
     ],
