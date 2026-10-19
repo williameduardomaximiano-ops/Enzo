@@ -27,7 +27,7 @@ FunctionEnd
 Section "ENZO" SEC01
  SetOutPath "$INSTDIR"
  SetOverwrite on
- File /r "${PROJECT_DIR}/dist/win-unpacked/*"
+ File /r "${PROJECT_DIR}\dist\win-unpacked\*.*"
  WriteUninstaller "$INSTDIR\Desinstalar ENZO.exe"
  WriteRegStr HKCU "Software\AgapeStudio\ENZO" "InstallDir" "$INSTDIR"
  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ENZO" "DisplayName" "ENZO"
@@ -43,7 +43,7 @@ Section "Uninstall"
  Delete "$SMPROGRAMS\ENZO\ENZO.lnk"
  RMDir "$SMPROGRAMS\ENZO"
  ; Remove only files belonging to ENZO. Never delete user data or arbitrary folders.
- !include "${PROJECT_DIR}/scripts/uninstall-files.nsh"
+ !include "${PROJECT_DIR}\scripts\uninstall-files.nsh"
  Delete "$INSTDIR\Desinstalar ENZO.exe"
  RMDir "$INSTDIR"
  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ENZO"
