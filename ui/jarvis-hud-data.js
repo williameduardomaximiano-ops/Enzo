@@ -1,4 +1,4 @@
-// HUD com dados reais do computador (CPU, memória, lembretes), quando o ENZO roda no Electron.
+// HUD com dados reais do computador (CPU, memória, lembretes), quando o COSMO roda no Electron.
 (()=>{
   const api=window.enzo;if(!api?.sysinfo)return;
   const $=id=>document.getElementById(id);const cpu=[];let battery=null;

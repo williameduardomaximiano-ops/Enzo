@@ -1,15 +1,15 @@
-# ENZO 0.1.0 — aplicação inicial, validação Windows pendente
+# COSMO 0.1.0 — aplicação inicial, validação Windows pendente
 
 Construído do zero para Windows 10/11 x64. Este pacote contém código executável e um instalador NSIS, não apenas uma página demonstrativa. **Não é a conclusão de todo o planejamento nem uma versão validada em um computador Windows real.**
 
 ## Instalação e primeiro uso
 
 1. Execute `ENZO-0.1.0-Windows-x64.exe` em Windows 10 de 64 bits, versão 1809 ou posterior. O instalador é de desenvolvimento e não possui assinatura Authenticode. Verifique o SHA-256 fornecido. Não desative proteções do Windows.
-2. Abra ENZO → Configuração → Verificar componentes. Python, Piper, Whisper Base e modelos de voz já estão no pacote.
+2. Abra COSMO → Configuração → Verificar componentes. Python, Piper, Whisper Base e modelos de voz já estão no pacote.
 3. Se a voz apontar DLL Microsoft ausente, use **Componente Microsoft**. Ele abre o redistribuível oficial Visual C++ x64 incluído. A instalação desse componente pode exigir autorização administrativa.
-4. Para conversa livre, abra ENZO → Configuração → Cofre Criptografado, cole as chaves grátis de Groq (console.groq.com) e/ou Gemini (aistudio.google.com) e salve. O ENZO usa Groq e Gemini com fallback automático entre eles. Sem chave, só os comandos locais funcionam.
-5. Ouça a voz de teste. Ative o microfone e diga “ENZO, que horas são?” ou “ENZO, abra a calculadora”. Autorize a abertura na janela nativa.
-6. Teste conversa livre. Se o modelo não estiver disponível, o ENZO informa o problema, sem simular uma resposta de IA.
+4. Para conversa livre, abra COSMO → Configuração → Cofre Criptografado, cole as chaves grátis de Groq (console.groq.com) e/ou Gemini (aistudio.google.com) e salve. O COSMO usa Groq e Gemini com fallback automático entre eles. Sem chave, só os comandos locais funcionam.
+5. Ouça a voz de teste. Ative o microfone e diga “COSMO, que horas são?” ou “COSMO, abra a calculadora”. Autorize a abertura na janela nativa.
+6. Teste conversa livre. Se o modelo não estiver disponível, o COSMO informa o problema, sem simular uma resposta de IA.
 
 Microfone desligado ao iniciar. Ctrl+Alt+Espaço alterna a captura. Ctrl+Alt+Esc interrompe e pausa. **Retomar** libera novas ações. O botão Flutuante abre uma janela compacta sempre no topo; nesta versão ela ainda tem moldura e fundo, não é uma sobreposição transparente sem bordas.
 
@@ -34,7 +34,7 @@ Microfone desligado ao iniciar. Ctrl+Alt+Espaço alterna a captura. Ctrl+Alt+Esc
 - Não há canal de atualização hospedado, chave de produção ou certificado de assinatura Windows. Logo, futuras versões ainda não aparecem automaticamente no programa. O mecanismo está implementado, mas a distribuição não está operacional.
 - Ainda não há UI Automation com seletores, visão de tela, OCR, controle geral de mouse, integração OpenCode/Claude, aprendizado de rotinas, scheduler de agentes, memória semântica, rollback automático nem acesso remoto fora da LAN.
 - Avatar original procedural. A imagem de referência do planejamento não foi disponibilizada como imagem nesta execução; não foi possível validar fidelidade visual à referência.
-- Não foi possível recuperar uma especificação completa do novo ENZO; os requisitos explícitos da conversa orientaram esta versão. O arquivo legado JARVIS foi tratado como referência, não como especificação integral do ENZO.
+- Não foi possível recuperar uma especificação completa do novo COSMO; os requisitos explícitos da conversa orientaram esta versão. O arquivo legado JARVIS foi tratado como referência, não como especificação integral do COSMO.
 
 ## Desenvolvimento
 
@@ -61,13 +61,13 @@ Leia `docs/ATUALIZACOES.md`. Nenhuma chave privada está incluída. Não basta a
 
 Dados ficam no diretório Electron `userData` do usuário, normalmente `%APPDATA%\enzo-assistente`. Logs guardam tipo de evento, sem áudio ou texto de conversa. Histórico é opcional e sem criptografia; não dite senhas. Desinstalar preserva os dados.
 
-Código ENZO sob GPL-3.0-or-later. Consulte `LICENSE` e `third-party/NOTICE.md`. O pacote não cobra por APIs; internet, eletricidade e eventuais serviços escolhidos pelo usuário têm custos próprios.
+Código COSMO sob GPL-3.0-or-later. Consulte `LICENSE` e `third-party/NOTICE.md`. O pacote não cobra por APIs; internet, eletricidade e eventuais serviços escolhidos pelo usuário têm custos próprios.
 
 ## Protocolo JARVIS
 
-- **Palavra de ativação** (Configuração → Protocolo JARVIS, desligada por padrão): o microfone fica aberto e o ENZO só responde a frases que começam com “Enzo” (ou “Jarvis”). Dizer só “Enzo” faz ele responder “Pois não, senhor?” e ouvir o próximo pedido por 8 segundos. Tudo é reconhecido localmente; o resto é descartado.
+- **Palavra de ativação** (Configuração → Protocolo JARVIS, desligada por padrão): o microfone fica aberto e o COSMO só responde a frases que começam com “Cosmo” (ou “Jarvis”). Dizer só “Cosmo” faz ele responder “Pois não, senhor?” e ouvir o próximo pedido por 8 segundos. Tudo é reconhecido localmente; o resto é descartado.
 - **Personalidade**: trata você por “senhor”, responde curto para a voz e com ironia leve.
-- **Memória**: “Enzo, lembre que…”, “o que você lembra de mim?”, “esqueça …”, “esqueça tudo”. Guardada com a criptografia do sistema (`memory.enc`) e editável na Configuração.
+- **Memória**: “Cosmo, lembre que…”, “o que você lembra de mim?”, “esqueça …”, “esqueça tudo”. Guardada com a criptografia do sistema (`memory.enc`) e editável na Configuração.
 - **Lembretes, timers e alarmes**: “me lembre de … em 10 minutos / às 15h30”, “timer de 5 minutos”, “alarme para as 7h”, “quais são meus lembretes?”. Avisam por voz, na conversa e com notificação do Windows.
 - **Clima**: “como está o tempo (em Curitiba)?”, usando a cidade salva e o Open-Meteo (sem chave).
 - **Mídia**: aumentar/diminuir volume, silenciar, tocar/pausar, próxima/anterior (teclas multimídia do Windows).
@@ -76,7 +76,7 @@ Código ENZO sob GPL-3.0-or-later. Consulte `LICENSE` e `third-party/NOTICE.md`.
 
 ## Faça de tudo: agente, internet e PC
 
-- **Agente de programação** (Claude Code ou OpenCode instalado no PC, escolha em Configuração → Agentes): “crie um site de uma barbearia”, “crie um jogo da cobrinha”, “no projeto loja, adicione um carrinho”, “peça pro Claude…”, “peça pro OpenCode…”. Cada tarefa pede confirmação, roda em segundo plano na pasta de projetos (padrão `Documentos\ENZO Projetos`), mostra o progresso na conversa e o ENZO avisa por voz ao terminar; sites prontos abrem no navegador. Pedidos livres que exigem trabalho no PC também podem virar tarefa do agente (sempre com confirmação). Por padrão o Claude Code só edita arquivos e roda npm/node/git/python; “liberar todos os comandos” é opcional.
+- **Agente de programação** (Claude Code ou OpenCode instalado no PC, escolha em Configuração → Agentes): “crie um site de uma barbearia”, “crie um jogo da cobrinha”, “no projeto loja, adicione um carrinho”, “peça pro Claude…”, “peça pro OpenCode…”. Cada tarefa pede confirmação, roda em segundo plano na pasta de projetos (padrão `Documentos\COSMO Projetos`), mostra o progresso na conversa e o COSMO avisa por voz ao terminar; sites prontos abrem no navegador. Pedidos livres que exigem trabalho no PC também podem virar tarefa do agente (sempre com confirmação). Por padrão o Claude Code só edita arquivos e roda npm/node/git/python; “liberar todos os comandos” é opcional.
 - **Pesquisa com fontes**: “pesquise sobre…”, “últimas notícias sobre…”. Busca no DuckDuckGo, lê as páginas e a IA resume citando as fontes (requer chave Groq ou Gemini para o resumo).
 - **YouTube**: “toque Coldplay no YouTube”, “coloca a música…”, “pesquise no YouTube…” (abre direto o primeiro vídeo).
 - **ChatGPT, Claude, Gemini e Google**: “mande pro ChatGPT…”, “mande isso pro ChatGPT” (envia a última resposta), “pergunte ao Claude…”, “pesquise no Google…”.

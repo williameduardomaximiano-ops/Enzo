@@ -1,11 +1,11 @@
 // Ponte com agentes de programação (Claude Code e OpenCode) instalados no PC.
-// O ENZO entrega a tarefa, acompanha o progresso e devolve o resultado; cada tarefa é aprovada antes no computador.
+// O COSMO entrega a tarefa, acompanha o progresso e devolve o resultado; cada tarefa é aprovada antes no computador.
 const {spawn}=require('node:child_process');const fs=require('node:fs');const path=require('node:path');const os=require('node:os');
 
 const AGENTS=Object.freeze({claude:'Claude Code',opencode:'OpenCode'});
 // Comandos de desenvolvimento liberados para o Claude Code sem o modo "liberar tudo".
 const DEV_TOOLS=['Read','Edit','Write','Glob','Grep','WebSearch','WebFetch','TodoWrite','Bash(npm:*)','Bash(npx:*)','Bash(node:*)','Bash(git:*)','Bash(python:*)','Bash(py:*)','Bash(pip:*)','Bash(mkdir:*)','Bash(dir:*)','Bash(ls:*)'];
-const APPEND='Você foi acionado pelo ENZO, o assistente pessoal de William. Trabalhe somente dentro da pasta atual, a menos que a tarefa diga outra pasta. Nunca apague arquivos fora da pasta do projeto. Ao final, responda em português do Brasil com no máximo 3 frases curtas dizendo o que foi feito e onde, pois a resposta será lida em voz alta.';
+const APPEND='Você foi acionado pelo COSMO, o assistente pessoal de William. Trabalhe somente dentro da pasta atual, a menos que a tarefa diga outra pasta. Nunca apague arquivos fora da pasta do projeto. Ao final, responda em português do Brasil com no máximo 3 frases curtas dizendo o que foi feito e onde, pois a resposta será lida em voz alta.';
 
 function candidates(name,env=process.env,platform=process.platform){
  const dirs=String(env.PATH||env.Path||'').split(path.delimiter).filter(Boolean);

@@ -28,7 +28,7 @@ class Reminders{
  constructor(store,onFire,clock=Date.now){this.store=store;this.onFire=onFire;this.clock=clock;this.timers=new Map();this.items=[];
   const d=store.load([]);for(const r of Array.isArray(d)?d:[])if(typeof r?.text==='string'&&Number.isFinite(r?.at))this.schedule(r,false);this.persist();}
  schedule(r,save=true){const item={id:r.id||Math.random().toString(36).slice(2,10),text:String(r.text).slice(0,300),at:r.at};this.items.push(item);
-  // Lembretes vencidos enquanto o ENZO estava fechado avisam alguns segundos após abrir, com a janela pronta.
+  // Lembretes vencidos enquanto o COSMO estava fechado avisam alguns segundos após abrir, com a janela pronta.
   const ms=Math.max(save?0:8000,item.at-this.clock());const timer=setTimeout(()=>{this.timers.delete(item.id);this.items=this.items.filter(x=>x.id!==item.id);this.persist();this.onFire(item);},Math.min(ms,2**31-1));timer.unref?.();this.timers.set(item.id,timer);if(save)this.persist();return item;}
  add(text,at){if(this.items.length>=MAX_REMINDERS)throw Error('Limite de lembretes atingido.');if(!Number.isFinite(at)||at<=this.clock()||at-this.clock()>MAX_DELAY)throw Error('Só consigo lembrar de algo nos próximos 7 dias.');return this.schedule({text,at});}
  list(){return [...this.items].sort((a,b)=>a.at-b.at);}
@@ -49,12 +49,12 @@ function formatAt(at){return new Date(at).toLocaleTimeString('pt-BR',{hour:'2-di
 
 // Pedidos de lembrete, alarme e timer em português natural.
 function parseReminder(text,now=Date.now()){
- const s=norm(text).replace(/^enzo[, ]*/,'');let m;
+ const s=norm(text).replace(/^(?:cosmo|cosmos|kosmo|enzo)[, ]*/,'');let m;
  if((m=s.match(new RegExp(`^(?:(?:coloque|coloca|crie|cria|inicie|inicia|ligue|liga) (?:um )?)?(?:timer|temporizador|cronometro) (?:de |para )?${NUM} ${UNIT}$`))))return {text:'O tempo do timer acabou.',at:now+amount(m[1],m[2]),timer:true};
  if((m=s.match(/^(?:(?:coloque|coloca|crie|cria|defina|ligue|liga) (?:um )?)?(?:alarme|despertador) (?:para |pras? )?(?:as )?(\d{1,2})(?:[:h](\d{2}))?(?: ?h(?:oras)?)?$/)))return {text:'Alarme.',at:atClock(m[1],m[2],now),alarm:true};
  if(!/^(?:me )?lembr|^(?:daqui a)/.test(s))return null;
  // Mantém acentos no texto do lembrete para a voz pronunciar corretamente.
- const lower=String(text).toLowerCase().replace(/[!?]/g,'').replace(/\.$/,'').trim().replace(/^enzo[, ]*/,'').replace(/,/g,'');
+ const lower=String(text).toLowerCase().replace(/[!?]/g,'').replace(/\.$/,'').trim().replace(/^(?:cosmo|cosmos|kosmo|enzo)[, ]*/,'').replace(/,/g,'');
  const body=lower.replace(/^(?:por favor )?(?:me )?lembr(?:e|a|ar)(?: me)?(?: (?:por favor))?\s*/,'');
  const rel=new RegExp(`(?:^|\\s)(?:em|daqui a|daqui) ${NUM} ${UNIT}(?:\\s|$)`),abs=/(?:^|\s)(?:às|as|à|a|para as|para às|pras) (\d{1,2})(?:[:h](\d{2}))?(?: ?h(?:oras)?)?(?:\s|$)/;
  if((m=body.match(rel)))return {text:clean((body.slice(0,m.index)+' '+body.slice(m.index+m[0].length)).replace(/\s+/g,' ').replace(/^me lembre\s*/,'')),at:now+amount(m[1],m[2])};
@@ -64,8 +64,8 @@ function parseReminder(text,now=Date.now()){
 
 const MEDIA={volume_up:'aumentar o volume',volume_down:'diminuir o volume',mute:'silenciar o som',play_pause:'tocar ou pausar',next:'próxima faixa',previous:'faixa anterior'};
 function jarvisIntent(text){
- const s=norm(text).replace(/^enzo[, ]*/,'');let m;
- const orig=String(text).trim().replace(/^enzo[, ]*/i,'').replace(/[.!?]+$/,'').trim();
+ const s=norm(text).replace(/^(?:cosmo|cosmos|kosmo|enzo)[, ]*/,'');let m;
+ const orig=String(text).trim().replace(/^(?:cosmo|cosmos|kosmo|enzo)[, ]*/i,'').replace(/[.!?]+$/,'').trim();
  if((m=orig.match(/^(?:lembre|lembra|guarde|guarda|anote|anota|memorize|grave) (?:que|isso:?) (.+)$/i)))return {type:'memory_add',text:m[1]};
  if(/^(?:o que voce (?:lembra|sabe)(?: sobre mim| de mim)?|quais (?:sao )?(?:suas|as) memorias|(?:mostre|liste|mostra|lista) (?:a |sua |suas )?memorias?)$/.test(s))return {type:'memory_list'};
  if(/^(?:esqueca|esquece|apague|apaga|limpe|limpa) (?:tudo|toda a memoria|sua memoria|a memoria|as memorias|suas memorias)(?: sobre mim)?$/.test(s))return {type:'memory_clear'};
@@ -100,7 +100,7 @@ function greeting(date=new Date(),name='senhor'){const h=date.getHours();const p
 
 const WMO={0:'céu limpo',1:'predominantemente limpo',2:'parcialmente nublado',3:'nublado',45:'neblina',48:'neblina com geada',51:'garoa fraca',53:'garoa',55:'garoa forte',61:'chuva fraca',63:'chuva',65:'chuva forte',66:'chuva congelante',67:'chuva congelante forte',71:'neve fraca',73:'neve',75:'neve forte',80:'pancadas de chuva fracas',81:'pancadas de chuva',82:'pancadas de chuva fortes',95:'trovoadas',96:'trovoadas com granizo',99:'trovoadas fortes com granizo'};
 async function weather(city,fetchImpl=fetch,signal){
- const name=String(city||'').trim();if(!name||name.length>80)throw Error('Diga a cidade: "Enzo, como está o tempo em Curitiba?" ou salve sua cidade em Configuração.');
+ const name=String(city||'').trim();if(!name||name.length>80)throw Error('Diga a cidade: "Cosmo, como está o tempo em Curitiba?" ou salve sua cidade em Configuração.');
  const t=signal?AbortSignal.any([signal,AbortSignal.timeout(12000)]):AbortSignal.timeout(12000);
  const g=await fetchImpl('https://geocoding-api.open-meteo.com/v1/search?count=1&language=pt&format=json&name='+encodeURIComponent(name),{signal:t});
  if(!g.ok)throw Error('Serviço de clima indisponível.');const place=(await g.json())?.results?.[0];if(!place)throw Error(`Não encontrei a cidade ${name}.`);

@@ -1,6 +1,6 @@
 // Pedidos de "faça de tudo": agente de programação, internet, YouTube, ChatGPT e otimização do PC.
-function norm(s){return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[!?]/g,'').replace(/[.]+$/,'').trim().replace(/^(?:ei |ok )?(?:enzo|jarvis)[, ]*/,'');}
-function original(s){return String(s).trim().replace(/^(?:ei |ok )?(?:enzo|jarvis)[, ]*/i,'').replace(/[.!?]+$/,'').trim();}
+function norm(s){return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[!?]/g,'').replace(/[.]+$/,'').trim().replace(/^(?:ei |ok )?(?:cosmo|cosmos|kosmo|enzo|jarvis)[, ]*/,'');}
+function original(s){return String(s).trim().replace(/^(?:ei |ok )?(?:cosmo|cosmos|kosmo|enzo|jarvis)[, ]*/i,'').replace(/[.!?]+$/,'').trim();}
 // Recupera o trecho com acentos a partir da mesma posição relativa no texto original.
 function tail(orig,normalized,captured){if(!captured)return '';const at=normalized.lastIndexOf(captured);if(at<0)return captured;const o=original(orig);return o.length===normalized.length?o.slice(at,at+captured.length).trim():captured;}
 

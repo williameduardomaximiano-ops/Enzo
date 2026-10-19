@@ -11,7 +11,7 @@ function validateAction(raw) {
  case 'agent': return {type:raw.type,task:cleanText(raw.task,4000)};
  case 'media': if(!['volume_up','volume_down','mute','play_pause','next','previous'].includes(raw.key)) throw Error('Comando de mídia bloqueado.');return {type:raw.type,key:raw.key};
  case 'hotkey': if(!['copy','paste','select_all','undo','save'].includes(raw.key)) throw Error('Atalho bloqueado.');return {type:raw.type,key:raw.key};
- default: throw Error('O ENZO não tem permissão para essa ação.');
+ default: throw Error('O COSMO não tem permissão para essa ação.');
  }
 }
 class Gate {

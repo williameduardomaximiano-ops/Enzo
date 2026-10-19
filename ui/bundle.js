@@ -32,7 +32,7 @@
   // core/wake.cjs
   var require_wake = __commonJS({
     "core/wake.cjs"(exports, module) {
-      var NAME = "(?:enzo|enso|\xEAnzo|jarvis)";
+      var NAME = "(?:cosmo|cosmos|kosmo|kozmo|cosmo|enzo|jarvis)";
       var GREET = "(?:bom dia|boa tarde|boa noite|ol\xE1|ola|oi|e a\xED|e ai|fala)";
       var START = new RegExp(`^(?:(?:ei|ok|${GREET})[, ]+)?${NAME}\\b[,.!? ]*`, "i");
       var END = new RegExp(`[, ]+${NAME}[.!? ]*$`, "i");
@@ -106,7 +106,7 @@
     uiState = s;
     $("#state-label").textContent = names[s] || s;
     holo?.setState(s);
-    $("#holo-text").textContent = { listening: settings.wake && !armed ? "Diga \u201CEnzo\u201D para me chamar." : "Pode falar. Estou ouvindo.", thinking: "Um instante, estou pensando.", speaking: "Vamos conversar.", paused: "Seu espa\xE7o est\xE1 em modo privacidade.", permission: "A decis\xE3o \xE9 sua.", executing: "Executando sua solicita\xE7\xE3o." }[s] || "Pronto quando voc\xEA precisar.";
+    $("#holo-text").textContent = { listening: settings.wake && !armed ? "Diga \u201CCosmo\u201D para me chamar." : "Pode falar. Estou ouvindo.", thinking: "Um instante, estou pensando.", speaking: "Vamos conversar.", paused: "Seu espa\xE7o est\xE1 em modo privacidade.", permission: "A decis\xE3o \xE9 sua.", executing: "Executando sua solicita\xE7\xE3o." }[s] || "Pronto quando voc\xEA precisar.";
   }
   function setMeter(v) {
     const m = $("#mic-level");
@@ -121,7 +121,7 @@
     const node = document.createElement("article");
     node.className = who;
     const label = document.createElement("label");
-    label.textContent = who === "user" ? "VOC\xCA" : "ENZO";
+    label.textContent = who === "user" ? "VOC\xCA" : "COSMO";
     const p = document.createElement("p");
     p.textContent = text;
     node.append(label, p);
@@ -434,7 +434,7 @@
   $("#save-settings").onclick = () => save().catch((e) => notice(e.message));
   $("#continuous").onchange = save;
   $("#remember").onchange = save;
-  $("#test-voice").onclick = () => speak("Ol\xE1, William. Eu sou o Enzo. Minha voz est\xE1 sendo gerada aqui, no seu computador. Vamos trabalhar?");
+  $("#test-voice").onclick = () => speak("Ol\xE1, William. Eu sou o Cosmo. Minha voz est\xE1 sendo gerada aqui, no seu computador. Vamos trabalhar?");
   $("#clear").onclick = async () => {
     await invoke("clearHistory");
     $("#messages").replaceChildren();
@@ -586,7 +586,7 @@ ${e.update.notes}`;
       try {
         t = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       } catch (e) {
-        notice("Microfone: permita o acesso no navegador do ENZO para listar os dispositivos.");
+        notice("Microfone: permita o acesso no navegador do COSMO para listar os dispositivos.");
         return;
       }
       t.getTracks().forEach((x) => x.stop());
@@ -679,7 +679,7 @@ ${e.update.notes}`;
       if (!r.facts.length) {
         const li = document.createElement("li");
         li.className = "muted";
-        li.textContent = "Nada guardado ainda. Diga: \u201CEnzo, lembre que\u2026\u201D.";
+        li.textContent = "Nada guardado ainda. Diga: \u201CCosmo, lembre que\u2026\u201D.";
         list.append(li);
       }
       r.facts.forEach((f, i) => {
@@ -697,13 +697,13 @@ ${e.update.notes}`;
         li.append(span, b);
         list.append(li);
       });
-      $("#memory-status").textContent = r.persistent ? "Mem\xF3ria criptografada neste computador." : "Criptografia indispon\xEDvel: a mem\xF3ria dura s\xF3 at\xE9 fechar o ENZO.";
+      $("#memory-status").textContent = r.persistent ? "Mem\xF3ria criptografada neste computador." : "Criptografia indispon\xEDvel: a mem\xF3ria dura s\xF3 at\xE9 fechar o COSMO.";
     } catch (e) {
       notice(e.message);
     }
   }
   $("#memory-clear").onclick = async () => {
-    if (!confirm("Apagar toda a mem\xF3ria do ENZO?")) return;
+    if (!confirm("Apagar toda a mem\xF3ria do COSMO?")) return;
     await invoke("memoryClear");
     renderMemory();
     notice("Mem\xF3ria apagada.");

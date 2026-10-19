@@ -11,7 +11,7 @@
   const boot=$('boot'),log=$('boot-log');if(!boot)return;
   const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(reduce){boot.remove();return}
-  const lines=['INICIALIZANDO NÚCLEO ENZO...','CARREGANDO MATRIZ HOLOGRÁFICA.......OK','SINTETIZADOR DE VOZ PT-BR...........OK','PROTOCOLOS DE SEGURANÇA.............OK','TODOS OS SISTEMAS OPERACIONAIS.'];
+  const lines=['INICIALIZANDO NÚCLEO COSMO...','CARREGANDO MATRIZ HOLOGRÁFICA.......OK','SINTETIZADOR DE VOZ PT-BR...........OK','PROTOCOLOS DE SEGURANÇA.............OK','TODOS OS SISTEMAS OPERACIONAIS.'];
   let i=0;const step=()=>{if(i<lines.length){log.textContent+=lines[i++]+'\n';setTimeout(step,230)}else{boot.classList.add('done');setTimeout(()=>boot.remove(),700)}};
   boot.addEventListener('click',()=>boot.remove());step();
 })();

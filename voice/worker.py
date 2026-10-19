@@ -31,7 +31,7 @@ def execute(req):
     if op=='health':
         return {'tts':(ROOT/'pt_BR-faber-medium.onnx').is_file(), 'stt':(ROOT/'whisper-base'/'model.bin').is_file()}
     if op=='warmup':
-        # Carrega voz e reconhecimento ao abrir o ENZO, para a primeira resposta não esperar o carregamento.
+        # Carrega voz e reconhecimento ao abrir o COSMO, para a primeira resposta não esperar o carregamento.
         if voice is None and (ROOT/'pt_BR-faber-medium.onnx').is_file():
             from piper import PiperVoice
             voice=PiperVoice.load(str(ROOT/'pt_BR-faber-medium.onnx'))
@@ -59,7 +59,7 @@ def execute(req):
         if recognizer is None:
             from faster_whisper import WhisperModel
             recognizer=WhisperModel(str(ROOT/'whisper-base'),device='cpu',compute_type='int8',cpu_threads=max(1,min(4,os.cpu_count() or 2)),local_files_only=True)
-        segments,_=recognizer.transcribe(pcm,language='pt',beam_size=1,vad_filter=True,condition_on_previous_text=False,initial_prompt='Conversa em português brasileiro. Nomes: Enzo e William.')
+        segments,_=recognizer.transcribe(pcm,language='pt',beam_size=1,vad_filter=True,condition_on_previous_text=False,initial_prompt='Conversa em português brasileiro. Nomes: Cosmo e William.')
         return {'text':' '.join(s.text.strip() for s in segments).strip()}
     raise ValueError('Operação desconhecida')
 

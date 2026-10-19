@@ -31,7 +31,7 @@ async function youtubeUrl(query,{fetchImpl=fetch,signal}={}){const q=String(quer
  try{const r=await fetchImpl(results,{headers:{'User-Agent':UA,'Accept-Language':'pt-BR'},signal:timeout(signal,8000)});if(r.ok){const id=youtubeId(await r.text());if(id)return `https://www.youtube.com/watch?v=${id}`;}}catch{}
  return results;}
 const SITES={chatgpt:q=>'https://chatgpt.com/?q='+encodeURIComponent(q),claude:q=>'https://claude.ai/new?q='+encodeURIComponent(q),gemini:()=>'https://gemini.google.com/app',google:q=>'https://www.google.com/search?q='+encodeURIComponent(q),youtube:()=>'https://www.youtube.com/'};
-// Domínios que o ENZO abre direto quando o próprio usuário pede (sem diálogo).
+// Domínios que o COSMO abre direto quando o próprio usuário pede (sem diálogo).
 const QUICK_HOSTS=['youtube.com','www.youtube.com','chatgpt.com','claude.ai','gemini.google.com','www.google.com'];
 function isQuickUrl(u){try{const x=new URL(u);return x.protocol==='https:'&&QUICK_HOSTS.includes(x.hostname);}catch{return false;}}
 

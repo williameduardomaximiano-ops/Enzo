@@ -98,6 +98,6 @@ class WorkMode {
     };
     this.running=work();try{return await this.running;}finally{this.running=null;}
   }
-  end(){this.runId++;this.braveOpened=false;this.editorOpened=false;this.hermesOpened=false;this.active=false;return 'Modo Trabalho encerrado no ENZO. Mantive as janelas e programas abertos para não perder seu trabalho.';}
+  end(){this.runId++;this.braveOpened=false;this.editorOpened=false;this.hermesOpened=false;this.active=false;return 'Modo Trabalho encerrado no COSMO. Mantive as janelas e programas abertos para não perder seu trabalho.';}
 }
 module.exports={TABS,WorkMode,findBrave,findOpenCodeApp,findHermesApp,hasOpenCodeCli,hasHermesCli,openBraveWorkspace,openOpenCode,openHermes,detachedLaunch,openKnownApp};
