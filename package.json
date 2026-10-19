@@ -1,7 +1,7 @@
 {
   "name": "enzo-assistente",
   "version": "0.1.4",
-  "description": "ENZO — assistente pessoal local para Windows",
+  "description": "COSMO — assistente pessoal local para Windows",
   "main": "desktop/main.cjs",
   "author": "Ágape Studio",
   "license": "GPL-3.0-or-later",
@@ -21,7 +21,7 @@
   },
   "build": {
     "appId": "studio.agape.enzo",
-    "productName": "ENZO",
+    "productName": "COSMO",
     "directories": {
       "output": "dist"
     },
