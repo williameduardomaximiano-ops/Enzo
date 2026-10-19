@@ -29,6 +29,10 @@
   <p>Com sua autorização, o COSMO identifica os nomes das janelas atualmente abertas via UI Automation. Esta etapa ainda não lê botões, clica ou captura imagens.</p>
   <button id="observe-windows" type="button">Consultar janelas (com permissão)</button>
   <pre id="windows-result" class="cosmo-mission-log">Nenhuma consulta realizada.</pre>
+  <label for="controls-window">Selecionar janela autorizada</label><select id="controls-window"><option value="">Consulte as janelas primeiro</option></select>
+  <div class="button-row"><button id="controls-inspect" type="button">Ler botões dessa janela</button></div>
+  <div id="controls-list" class="cosmo-mission-list">Nenhum botão inspecionado.</div>
+
  </article>
  <article class="card wide"><span class="eyebrow">HISTÓRICO VERIFICÁVEL</span><h2>Minhas missões</h2><div id="mission-list" class="cosmo-mission-list" aria-live="polite">Carregando missões...</div><pre id="mission-log" class="cosmo-mission-log" aria-live="polite">Sem execução nesta sessão.</pre></article>
 <article class="card wide">
