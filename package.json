@@ -1,6 +1,6 @@
 {
   "name": "enzo-assistente",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "COSMO — assistente pessoal local para Windows",
   "main": "desktop/main.cjs",
   "author": "Ágape Studio",
