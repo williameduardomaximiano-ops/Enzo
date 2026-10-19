@@ -25,6 +25,16 @@ def jarvis_style(raw):
         wav.writeframes((y*32767).astype(np.int16).tobytes())
     return out.getvalue()
 
+def prepare_audio(pcm):
+    """Remove deslocamento DC e ajusta o volume: voz baixa ou distante vira volume de conversa, sem estourar."""
+    import numpy as np
+    x=pcm.astype(np.float32)-float(np.mean(pcm)) if len(pcm) else pcm.astype(np.float32)
+    if not len(x):return x
+    rms=float(np.sqrt(np.mean(x*x)));peak=float(np.max(np.abs(x)))
+    if rms<1e-4:return x
+    gain=min(0.1/rms,0.95/peak,20.0)  # alvo ~ -20 dBFS, sem passar do pico e no máximo 20x
+    return (x*gain if gain>1 else x).astype(np.float32)  # só amplifica; voz normal ou alta fica como está
+
 def execute(req):
     global voice, recognizer
     op=req.get('op')
@@ -59,7 +69,10 @@ def execute(req):
         if recognizer is None:
             from faster_whisper import WhisperModel
             recognizer=WhisperModel(str(ROOT/'whisper-base'),device='cpu',compute_type='int8',cpu_threads=max(1,min(4,os.cpu_count() or 2)),local_files_only=True)
-        segments,_=recognizer.transcribe(pcm,language='pt',beam_size=1,vad_filter=True,condition_on_previous_text=False,initial_prompt='Conversa em português brasileiro. Nomes: Cosmo e William.')
+        prompt=req.get('prompt') if isinstance(req.get('prompt'),str) else ''
+        segments,_=recognizer.transcribe(prepare_audio(pcm),language='pt',beam_size=5,best_of=5,temperature=(0.0,0.2,0.4),
+            vad_filter=True,vad_parameters={'min_silence_duration_ms':400,'speech_pad_ms':300},no_speech_threshold=0.6,
+            condition_on_previous_text=False,initial_prompt=(prompt[:900] or 'Conversa em português do Brasil com o assistente Cosmo. Nomes: Cosmo e William.'))
         return {'text':' '.join(s.text.strip() for s in segments).strip()}
     raise ValueError('Operação desconhecida')
 

@@ -87,7 +87,7 @@
     if (!turn?.heard || !turn.stt) return;
     const t = turn, now = performance.now();
     const think = (t.chat || t.stt) - t.stt, voice = now - (t.chat || t.stt);
-    $("#voice-metric").textContent = `\xDAltima resposta por voz: ${secs(now - t.end)} s \u2014 entender a fala ${secs(t.stt - t.end)} s \xB7 pensar ${secs(think)} s \xB7 gerar a voz ${secs(voice)} s`;
+    $("#voice-metric").textContent = `\xDAltima resposta por voz: ${secs(now - t.end)} s \u2014 entender a fala ${secs(t.stt - t.end)} s (${t.engine || "no PC"}) \xB7 pensar ${secs(think)} s \xB7 gerar a voz ${secs(voice)} s`;
     notice(`Respondi em ${secs(now - t.end)} s.`);
     turn = null;
   }
@@ -307,6 +307,7 @@
     try {
       const data = await invoke("transcribe", wavBase64(chunks));
       mark("stt");
+      if (turn) turn.engine = data.engine === "groq" ? "Groq na nuvem" : "no PC" + (data.fallback ? " (nuvem falhou)" : "");
       if (token !== generation) return;
       busy = false;
       const heardText = (data.text || "").trim();
@@ -394,7 +395,7 @@
           frames = frames.slice(-3);
           samples = frames.reduce((n, x) => n + x.length, 0);
         }
-        if (heard && (silent > 16e3 * 0.7 || samples >= 16e3 * 28)) {
+        if (heard && (silent > 16e3 * 1 || samples >= 16e3 * 28)) {
           const chunks = frames;
           frames = [];
           samples = 0;
@@ -440,7 +441,7 @@
     $("#heading").textContent = { home: "Intelig\xEAncia com presen\xE7a.", settings: "Voc\xEA no controle.", android: "Uma presen\xE7a, dois dispositivos.", updates: "Sempre evoluindo." }[b.dataset.tab];
   });
   async function save() {
-    settings = await invoke("configure", { autostart: $("#autostart").checked, keepInTray: $("#keep-tray").checked, briefing: $("#briefing").checked, confirmClicks: $("#confirm-clicks").checked, claudeModel: $("#claude-model").value.trim(), agentModel: $("#agent-model").value.trim(), brain: $("#brain").checked, agent: $("#agent").value, agentFull: $("#agent-full").checked, quickOpen: $("#quick-open").checked, wake: $("#wake").checked, greet: $("#greet").checked, city: $("#city").value.trim(), provider: $("#provider").value, groqModel: $("#groq-model").value.trim(), geminiModel: $("#gemini-model").value.trim(), autoUpdate: $("#auto-update").checked, micDevice: $("#device").value, micSensitivity: $("#mic-sensitivity").value, micNoise: $("#mic-noise").checked, micEcho: $("#mic-echo").checked, micGain: $("#mic-gain").checked, keepMicOn: $("#continuous").checked, remember: $("#remember").checked });
+    settings = await invoke("configure", { sttEngine: $("#stt-engine").value, autostart: $("#autostart").checked, keepInTray: $("#keep-tray").checked, briefing: $("#briefing").checked, confirmClicks: $("#confirm-clicks").checked, claudeModel: $("#claude-model").value.trim(), agentModel: $("#agent-model").value.trim(), brain: $("#brain").checked, agent: $("#agent").value, agentFull: $("#agent-full").checked, quickOpen: $("#quick-open").checked, wake: $("#wake").checked, greet: $("#greet").checked, city: $("#city").value.trim(), provider: $("#provider").value, groqModel: $("#groq-model").value.trim(), geminiModel: $("#gemini-model").value.trim(), autoUpdate: $("#auto-update").checked, micDevice: $("#device").value, micSensitivity: $("#mic-sensitivity").value, micNoise: $("#mic-noise").checked, micEcho: $("#mic-echo").checked, micGain: $("#mic-gain").checked, keepMicOn: $("#continuous").checked, remember: $("#remember").checked });
     notice("Configura\xE7\xE3o salva.");
   }
   $("#save-settings").onclick = () => save().catch((e) => notice(e.message));
@@ -926,6 +927,11 @@ ${e.update.notes}`;
   invoke("status").then((s) => {
     $("#autostart").checked = !!s.settings.autostart;
     $("#keep-tray").checked = s.settings.keepInTray !== false;
+  }).catch(() => {
+  });
+  $("#stt-engine").onchange = save;
+  invoke("status").then((s) => {
+    $("#stt-engine").value = s.settings.sttEngine || "auto";
   }).catch(() => {
   });
 })();
