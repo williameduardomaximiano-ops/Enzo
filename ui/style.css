@@ -62,3 +62,5 @@
 /* Não mostrar a antiga cabeça azul se ainda falta importar a imagem aprovada. */
 body:not([data-gold-photo="loaded"]) .presence #hologram{opacity:0}
 body:not([data-gold-photo="loaded"]) .presence{background:#030303}
+
+#avatar-gallery[hidden]{display:none!important}
