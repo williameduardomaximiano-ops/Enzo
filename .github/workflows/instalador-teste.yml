@@ -1,0 +1,47 @@
+name: Instalador de teste COSMO
+# Gera o instalador do Windows para testes, sem publicar release (o atualizador não o vê).
+# Roda em commits com "[instalador]" na mensagem ou manualmente pela aba Actions.
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  instalador:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[instalador]')
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Instalar dependências
+        run: npm ci
+      - name: Testes
+        run: npm test
+      - name: Cache do runtime (Python, voz e reconhecimento)
+        uses: actions/cache@v4
+        with:
+          path: |
+            resources
+            .build-wheels
+          key: runtime-${{ hashFiles('resources-lock.json', 'voice/requirements-windows.txt') }}
+      - name: Preparar runtime do Windows
+        run: python scripts/prepare-runtime.py
+      - name: Gerar instalador
+        run: npm run build:win
+      - name: Guardar instalador
+        uses: actions/upload-artifact@v4
+        with:
+          name: COSMO-instalador-teste
+          path: dist/ENZO-*-Windows-x64.exe
+          if-no-files-found: error
+          retention-days: 14
