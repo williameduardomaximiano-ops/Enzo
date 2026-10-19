@@ -226,6 +226,10 @@ $('#observe-windows').onclick=async()=>{
  try{
   const r=await invoke('observeWindows');
   $('#windows-result').textContent=!r.approved?'Consulta não autorizada.':r.windows.length?r.windows.map(w=>w.title+' (processo '+w.processId+')').join('\n'):'Nenhuma janela acessível nesta sessão.';
+  const select=$('#controls-window');select.replaceChildren(new Option('Escolha uma janela',''));
+  if(r.approved)for(const w of r.windows)select.add(new Option(w.title+' (#'+w.processId+')',String(w.processId)));
+  $('#controls-list').textContent='Selecione uma janela e consulte os botões com permissão.';
+
  }catch(err){$('#windows-result').textContent='Erro: '+err.message;}
 };
 
@@ -280,3 +284,28 @@ async function refreshRecoveries(){
 $('#recovery-backup').onclick=async()=>{try{const b=await invoke('recoveryBackup');notice('Backup criado: '+b.files.length+' arquivos.');await refreshRecoveries()}catch(err){notice('Backup: '+err.message)}};
 $('#recovery-refresh').onclick=()=>refreshRecoveries().catch(e=>notice('Backup: '+e.message));
 refreshRecoveries().catch(e=>notice('Backup: '+e.message));
+
+
+$('#controls-inspect').onclick=async()=>{
+ const pid=Number($('#controls-window').value);
+ if(!Number.isSafeInteger(pid)||pid<1){notice('Selecione uma janela.');return;}
+ const list=$('#controls-list');list.replaceChildren();list.textContent='Solicitando permissão...';
+ try{
+  const result=await invoke('controlsInspect',pid);
+  list.replaceChildren();
+  if(!result.approved){list.textContent='Inspeção cancelada.';return;}
+  if(!result.controls.length){list.textContent='Nenhum botão acessível encontrado nesta janela.';return;}
+  for(const item of result.controls){
+   const row=document.createElement('article');row.className='cosmo-mission';
+   const label=document.createElement('span');label.textContent=item.name||item.automationId;
+   const btn=document.createElement('button');btn.type='button';btn.textContent='Autorizar um clique';btn.onclick=async()=>{
+    try{
+     const r=await invoke('controlsClick',pid,{name:item.name,automationId:item.automationId});
+     notice(r.clicked?'Clique executado. Para outro clique, consulte novamente.':'Clique cancelado.');
+     list.textContent='Clique concluído ou cancelado. Inspecione novamente antes de outra ação.';
+    }catch(e){notice('Controle: '+e.message);}
+   };
+   row.append(label,btn);list.appendChild(row);
+  }
+ }catch(e){list.textContent='Falha: '+e.message;}
+};
