@@ -53,7 +53,7 @@ class ModeStore {
   hasSaved(name){return Object.hasOwn(this.data.modes,normalizeName(name));}
   list(){return Object.entries(this.data.modes).map(([name,targets])=>({name,targets:[...targets]}));}
   save(name,targets){const n=normalizeName(name);const t=validateTargets(targets);if(!Object.hasOwn(this.data.modes,n)&&Object.keys(this.data.modes).length>=20)throw Error('Limite de 20 modos atingido.');const previous=this.data.modes[n];this.data.modes[n]=t;try{this.persist();}catch(err){if(previous)this.data.modes[n]=previous;else delete this.data.modes[n];throw err;}return n;}
-  add(name,targets){const n=normalizeName(name),before=this.get(n);if(!before)throw Error('Modo não encontrado. Diga: Enzo, crie o modo '+n+' com Brave.');return this.save(n,[...new Set([...before,...validateTargets(targets)])]);}
+  add(name,targets){const n=normalizeName(name),before=this.get(n);if(!before)throw Error('Modo não encontrado. Diga: Cosmo, crie o modo '+n+' com Brave.');return this.save(n,[...new Set([...before,...validateTargets(targets)])]);}
   remove(name,targets){const n=normalizeName(name),before=this.get(n);if(!before)throw Error('Modo não encontrado.');const filtered=before.filter(x=>!validateTargets(targets).includes(x));if(!filtered.length)throw Error('O modo não pode ficar vazio; exclua o modo se não precisar dele.');return this.save(n,filtered);}
   delete(name){const n=normalizeName(name);if(!this.hasSaved(n))throw Error('Modo personalizado não encontrado.');const backup=this.data.modes[n];delete this.data.modes[n];try{this.persist();}catch(err){this.data.modes[n]=backup;throw err;}}
 }
@@ -94,7 +94,7 @@ class VoiceModes {
     };
     this.running=running();try{return await this.running;}finally{this.running=null;}
   }
-  end(name){const n=normalizeName(name);this.runId++;this.seen.delete(n);return 'Modo '+n+' encerrado no ENZO. Os programas continuam abertos.';}
+  end(name){const n=normalizeName(name);this.runId++;this.seen.delete(n);return 'Modo '+n+' encerrado no COSMO. Os programas continuam abertos.';}
   stop(){this.runId++;this.seen.clear();}
 }
 module.exports={BUILTIN_WORK,URLS,LABELS,ALIASES,ModeStore,VoiceModes,parseTargets,normalizeName,norm,defaultLaunchTarget};

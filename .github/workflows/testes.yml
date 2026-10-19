@@ -1,0 +1,25 @@
+name: Testes COSMO
+# Roda a suíte completa no Windows (onde o app é usado) em cada pull request e na main.
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  testes:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Instalar dependências
+        run: npm ci --ignore-scripts
+      - name: Testes
+        run: npm test

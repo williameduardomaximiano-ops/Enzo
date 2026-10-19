@@ -11,6 +11,6 @@ test('comandos de voz da Central de Atualizações',()=>{
 });
 test('cofre aceita token GitHub sem expor valor',()=>{
  assert.equal(vaultLib.validateProvider('github'),'github');
- assert.deepEqual(vaultLib.statusOf({groq:'x',gemini:'',github:'y'}),{groq:true,gemini:false,github:true});
+ assert.deepEqual(vaultLib.statusOf({groq:'x',gemini:'',github:'y'}),{groq:true,gemini:false,github:true,anthropic:false});
  assert.throws(()=>vaultLib.validateKey('curta'));
 });

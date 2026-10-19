@@ -1,0 +1,83 @@
+name: Publicar versão COSMO
+# Publica sozinho quando chega na main uma versão nova (campo "version" do package.json ainda sem release).
+# Também aceita a tag vX.Y.Z enviada manualmente. Testa, gera o instalador no Windows, assina o manifesto
+# e publica o release que o atualizador do app (updater/github-private.cjs) consulta.
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*.*.*'
+permissions:
+  contents: write
+concurrency:
+  group: publicar-versao
+  cancel-in-progress: false
+jobs:
+  publicar:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Conferir versão, notas e chave
+        id: versao
+        env:
+          ENZO_SIGNING_KEY: ${{ secrets.ENZO_SIGNING_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "${GITHUB_REF_NAME#v}" != "$VERSION" ]; then echo "::error::A tag $GITHUB_REF_NAME não bate com package.json ($VERSION)."; exit 1; fi
+          if gh release view "v$VERSION" >/dev/null 2>&1; then echo "::notice::A versão $VERSION já foi publicada. Para publicar de novo, suba a versão no package.json."; echo "publicar=nao" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ -z "$ENZO_SIGNING_KEY" ]; then echo "::warning::Versão $VERSION não publicada: falta o segredo ENZO_SIGNING_KEY (Settings → Secrets and variables → Actions)."; echo "publicar=nao" >> "$GITHUB_OUTPUT"; exit 0; fi
+          NOTES="release-notes/v$VERSION.md"
+          if [ ! -s "$NOTES" ]; then mkdir -p release-notes; git log -1 --pretty=%s > "$NOTES"; fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"; echo "NOTES=$NOTES" >> "$GITHUB_ENV"; echo "publicar=sim" >> "$GITHUB_OUTPUT"
+
+      - name: Instalar dependências
+        if: steps.versao.outputs.publicar == 'sim'
+        run: npm ci
+
+      - name: Testes
+        if: steps.versao.outputs.publicar == 'sim'
+        run: npm test
+
+      - name: Cache do runtime (Python, voz e reconhecimento)
+        if: steps.versao.outputs.publicar == 'sim'
+        uses: actions/cache@v4
+        with:
+          path: |
+            resources
+            .build-wheels
+          key: runtime-${{ hashFiles('resources-lock.json', 'voice/requirements-windows.txt') }}
+
+      - name: Preparar runtime do Windows
+        if: steps.versao.outputs.publicar == 'sim'
+        run: python scripts/prepare-runtime.py
+
+      - name: Gerar instalador
+        if: steps.versao.outputs.publicar == 'sim'
+        run: npm run build:win
+
+      - name: Assinar manifesto
+        if: steps.versao.outputs.publicar == 'sim'
+        env:
+          ENZO_SIGNING_KEY: ${{ secrets.ENZO_SIGNING_KEY }}
+        run: node scripts/sign-github-release.cjs "dist/ENZO-$VERSION-Windows-x64.exe" "$VERSION" "$NOTES" enzo-update.json
+
+      - name: Publicar release
+        if: steps.versao.outputs.publicar == 'sim'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v$VERSION" "dist/ENZO-$VERSION-Windows-x64.exe" enzo-update.json \
+            --title "COSMO $VERSION" --notes-file "$NOTES" --target "$GITHUB_SHA"

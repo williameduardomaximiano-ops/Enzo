@@ -1,3 +1,17 @@
+# Publicar uma versão do COSMO (automático)
+
+**Regra:** toda vez que chega na `main` uma versão nova no `package.json` (ex.: `0.2.0` → `0.2.1`), o GitHub publica sozinho e o COSMO instalado oferece a atualização. Sem versão nova, nada é publicado.
+
+1. **Uma vez:** em GitHub → Settings → Secrets and variables → Actions, crie o segredo `ENZO_SIGNING_KEY` com o conteúdo completo de `enzo-signing-private.pem` (a chave privada que combina com a pública em `core/update-channel.cjs`). Se perdeu a chave, gere outra com `node scripts/generate-signing-key.cjs C:\pasta\segura`, troque a chave pública em `core/update-channel.cjs` e instale manualmente a próxima versão uma vez.
+2. **Uma vez, no PC:** crie um token de leitura do GitHub (github.com/settings/personal-access-tokens/new → só o repositório Enzo → Contents: Read-only) e cole em COSMO → Configuração → Cofre → GitHub.
+3. **A cada mudança:** suba a versão em `package.json`, escreva as novidades em `release-notes/vX.Y.Z.md` (opcional; sem ele usa a mensagem do commit) e junte na `main`.
+4. O workflow **Publicar versão COSMO** testa, gera o instalador no Windows, assina (`scripts/sign-github-release.cjs`) e publica o release `vX.Y.Z` com `ENZO-X.Y.Z-Windows-x64.exe` e `enzo-update.json`. Também aceita a tag `vX.Y.Z` enviada manualmente.
+5. O COSMO verifica ao abrir, a cada 6 horas ou quando você diz “buscar atualizações”, e só instala com sua confirmação.
+
+O instalador não tem assinatura Authenticode; o Windows SmartScreen pode avisar na instalação.
+
+---
+
 # Distribuição de atualizações — implementação e pendências
 
 O aplicativo só aceita um manifesto com assinatura Ed25519 verificada contra a chave pública incluída na compilação. O JSON externo contém `payload` (string JSON exata) e `signature` (base64). O payload descreve versão, URL HTTPS do .exe, tamanho em bytes, SHA-256 e notas. Versões iguais/anteriores e conteúdo alterado são recusados.

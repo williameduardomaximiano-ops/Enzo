@@ -1,0 +1,10 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
+const {signRelease}=require('../scripts/sign-github-release.cjs');const {verifyEnvelope}=require('../updater/github-private.cjs');
+test('release: manifesto assinado no formato que o atualizador aceita, e chave errada é recusada antes de publicar',()=>{const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rel-'));const exe=path.join(dir,'ENZO-0.2.0-Windows-x64.exe');fs.writeFileSync(exe,Buffer.alloc(4096,7));
+ const pair=crypto.generateKeyPairSync('ed25519');const priv=pair.privateKey.export({type:'pkcs8',format:'pem'}),pub=pair.publicKey.export({type:'spki',format:'pem'});
+ const env=signRelease({installer:exe,version:'0.2.0',notes:'Novidades.',privateKeyPem:priv,publicKeyPem:pub});
+ const m=verifyEnvelope(env,crypto.createPublicKey(pub),'0.1.4');assert.equal(m.asset,'ENZO-0.2.0-Windows-x64.exe');assert.equal(m.size,4096);assert.equal(m.sha256,crypto.createHash('sha256').update(fs.readFileSync(exe)).digest('hex'));assert.equal(m.notes,'Novidades.');
+ assert.equal(verifyEnvelope(env,crypto.createPublicKey(pub),'0.2.0'),null);
+ const other=crypto.generateKeyPairSync('ed25519').privateKey.export({type:'pkcs8',format:'pem'});assert.throws(()=>signRelease({installer:exe,version:'0.2.0',notes:'x',privateKeyPem:other,publicKeyPem:pub}),/Assinatura inválida/);
+ assert.throws(()=>signRelease({installer:exe,version:'0.3.0',notes:'x',privateKeyPem:priv,publicKeyPem:pub}),/deve se chamar/);});
+test('empacotamento: atualizador entra no app e versão tem notas de release',()=>{const pkg=require('../package.json');assert.ok(pkg.build.files.includes('updater/**'));assert.ok(fs.statSync(path.join(__dirname,'..','release-notes',`v${pkg.version}.md`)).size>20);});

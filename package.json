@@ -1,7 +1,7 @@
 {
   "name": "enzo-assistente",
-  "version": "0.1.4",
-  "description": "ENZO — assistente pessoal local para Windows",
+  "version": "0.2.0",
+  "description": "COSMO — assistente pessoal para Windows",
   "main": "desktop/main.cjs",
   "author": "Ágape Studio",
   "license": "GPL-3.0-or-later",
@@ -9,9 +9,10 @@
     "start": "npm run bundle && electron .",
     "bundle": "esbuild ui/app.js --bundle --format=iife --outfile=ui/bundle.js",
     "test": "node --test tests/*.test.cjs",
-    "build:win": "npm run bundle && electron-builder --win dir --x64 && node scripts/uninstall-list.cjs && electron-builder --win nsis --x64 --prepackaged dist/win-unpacked"
+    "build:win": "npm run bundle && electron-builder --win dir --x64 --publish never && node scripts/uninstall-list.cjs && electron-builder --win nsis --x64 --prepackaged dist/win-unpacked --publish never"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
     "three": "0.180.0"
   },
   "devDependencies": {
@@ -29,6 +30,7 @@
       "desktop/**",
       "core/**",
       "ui/**",
+      "updater/**",
       "android/**",
       "package.json"
     ],

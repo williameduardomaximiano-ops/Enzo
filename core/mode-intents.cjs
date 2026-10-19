@@ -2,7 +2,7 @@
 /** Interpretador determinístico de comandos de modo; não utiliza a IA. */
 const {norm}=require('./modes.cjs');
 function modeIntent(text){
- const s=norm(text).replace(/^enzo[, ]*/,'').replace(/[.!?]+$/,'').trim();
+ const s=norm(text).replace(/^(?:cosmo|cosmos|kosmo|enzo)[, ]*/,'').replace(/[.!?]+$/,'').trim();
  if(/^(?:quais sao |listar |liste |mostre |mostrar )(?:os )?(?:meus )?modos(?: salvos)?$/.test(s)||/^(?:meus modos|modos salvos)$/.test(s))return {type:'mode_list'};
  let m=s.match(/^(?:crie|criar|cria|salve|salvar|salva|grave|gravar) (?:um |o )?modo (?:chamado )?(.+?) com (.+)$/);
  if(m)return {type:'mode_save',name:m[1],targets:m[2]};

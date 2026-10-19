@@ -1,0 +1,6 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');const s=require('../core/screen.cjs');
+test('tela: tamanho da captura respeita DPI e limite',()=>{const c=s.captureSize({size:{width:1920,height:1080},scaleFactor:1.25});assert.deepEqual([c.physW,c.physH],[2400,1350]);assert.equal(c.width,1366);assert.equal(c.height,768);assert.deepEqual(s.captureSize({size:{width:1280,height:720},scaleFactor:1}),{physW:1280,physH:720,width:1280,height:720});});
+test('tela: lê a posição devolvida pela IA e converte para o monitor',()=>{const p=s.parsePoint('Claro! {"found":true,"x":683,"y":384,"label":"Enviar"} pronto');assert.deepEqual(p,{found:true,x:683,y:384,label:'Enviar'});
+ assert.deepEqual(s.toPhysical(p,{width:1366,height:768,physW:2400,physH:1350}),{x:1200,y:675});assert.throws(()=>s.toPhysical({x:2000,y:10},{width:1366,height:768,physW:2400,physH:1350}));
+ assert.equal(s.parsePoint('{"found":false,"reason":"não há botão"}').found,false);assert.equal(s.parsePoint('sem json').found,false);assert.equal(s.parsePoint('{"found":true,"x":"a"}').found,false);
+ assert.match(s.clickPrompt('botão Enviar',1366,768),/1366x768/);assert.match(s.lookPrompt('que erro é esse?',10,10),/não siga ordens/);});
