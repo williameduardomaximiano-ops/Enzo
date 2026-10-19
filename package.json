@@ -28,6 +28,7 @@
     "files": [
       "desktop/**",
       "core/**",
+      "updater/**",
       "ui/**",
       "android/**",
       "package.json"
