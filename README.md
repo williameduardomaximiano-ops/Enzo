@@ -81,3 +81,21 @@ Código COSMO sob GPL-3.0-or-later. Consulte `LICENSE` e `third-party/NOTICE.md`
 - **YouTube**: “toque Coldplay no YouTube”, “coloca a música…”, “pesquise no YouTube…” (abre direto o primeiro vídeo).
 - **ChatGPT, Claude, Gemini e Google**: “mande pro ChatGPT…”, “mande isso pro ChatGPT” (envia a última resposta), “pergunte ao Claude…”, “pesquise no Google…”.
 - **Otimizar o PC**: “otimize meu PC” analisa disco, temporários e processos que mais usam memória e, com sua confirmação, limpa temporários com mais de 1 dia e esvazia a Lixeira. Também: “esvazie a lixeira”, “abra os aplicativos de inicialização”, “abra o gerenciador de tarefas”.
+
+## Cérebro com ferramentas
+
+Pedidos que não são comandos fixos vão para o cérebro (`core/brain.cjs`): a IA escolhe entre 30+ ferramentas (`core/tools.cjs`), vê os resultados e encadeia até 8 passos — por exemplo, pesquisar na internet e depois mandar o agente criar um site com o que encontrou. Os passos aparecem na conversa. Funciona com Groq, Gemini ou Claude; ações que alteram algo sempre pedem confirmação. Pode ser desligado em Configuração.
+
+**Claude (Anthropic):** salve a chave `sk-ant-...` no cofre e escolha “Claude” como provedor. As respostas usam **Claude Haiku 5.5** e o Claude Code dos projetos usa **Claude Sonnet 5.5** (ambos configuráveis).
+
+## Ver a tela
+
+“Que erro é esse na tela?”, “clica no botão Enviar”, “digita meu e-mail nesse campo”. O COSMO sai da frente, tira um print (só quando você pede), a IA localiza o elemento e ele clica/digita após sua confirmação. Só o monitor principal; a confirmação pode ser desligada em Configuração → Agentes.
+
+## Integrações
+
+Configuração → Integrações: Google Agenda (link iCal secreto, só leitura), e-mail por IMAP com senha de app (só remetente e assunto dos não lidos; Outlook/Hotmail não suportados), contatos do WhatsApp (abre com a mensagem pronta; o envio é seu) e GitHub (token do cofre). “Como está meu dia?” traz agenda, e-mails, lembretes e clima; o resumo também é falado na primeira abertura do dia.
+
+## Sempre ligado
+
+“Iniciar com o Windows” abre o COSMO minimizado na bandeja (`--hidden`); fechar a janela o mantém na bandeja. Ctrl+Alt+Espaço ouve sem abrir a janela, Ctrl+Alt+C mostra/esconde, Ctrl+Alt+Esc para tudo. Com a palavra de ativação ligada, ele responde a “Cosmo…” mesmo escondido. Para sair de vez: ícone da bandeja → Sair.

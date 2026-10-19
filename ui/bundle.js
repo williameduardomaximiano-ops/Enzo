@@ -42,8 +42,8 @@
         const m = s.match(START);
         if (m) {
           const rest = s.slice(m[0].length).trim();
-          const greet = m[0].match(new RegExp(`^${GREET}`, "i"));
-          return rest || (greet ? greet[0] : "");
+          const greet2 = m[0].match(new RegExp(`^${GREET}`, "i"));
+          return rest || (greet2 ? greet2[0] : "");
         }
         const e = s.match(END);
         if (e && e.index > 0) return s.slice(0, e.index).trim();
@@ -66,6 +66,18 @@
   var armed = 0;
   var greeted = false;
   var batteryWarned = false;
+  var pendingGreet = false;
+  async function greet() {
+    if (greeted) return;
+    greeted = true;
+    pendingGreet = false;
+    try {
+      const g = await invoke("greeting");
+      message(g);
+      await speak(g);
+    } catch {
+    }
+  }
   var turn = null;
   var secs = (ms) => (ms / 1e3).toFixed(1).replace(".", ",");
   function mark(k) {
@@ -428,7 +440,7 @@
     $("#heading").textContent = { home: "Intelig\xEAncia com presen\xE7a.", settings: "Voc\xEA no controle.", android: "Uma presen\xE7a, dois dispositivos.", updates: "Sempre evoluindo." }[b.dataset.tab];
   });
   async function save() {
-    settings = await invoke("configure", { briefing: $("#briefing").checked, confirmClicks: $("#confirm-clicks").checked, claudeModel: $("#claude-model").value.trim(), agentModel: $("#agent-model").value.trim(), brain: $("#brain").checked, agent: $("#agent").value, agentFull: $("#agent-full").checked, quickOpen: $("#quick-open").checked, wake: $("#wake").checked, greet: $("#greet").checked, city: $("#city").value.trim(), provider: $("#provider").value, groqModel: $("#groq-model").value.trim(), geminiModel: $("#gemini-model").value.trim(), autoUpdate: $("#auto-update").checked, micDevice: $("#device").value, micSensitivity: $("#mic-sensitivity").value, micNoise: $("#mic-noise").checked, micEcho: $("#mic-echo").checked, micGain: $("#mic-gain").checked, continuous: $("#continuous").checked, remember: $("#remember").checked });
+    settings = await invoke("configure", { autostart: $("#autostart").checked, keepInTray: $("#keep-tray").checked, briefing: $("#briefing").checked, confirmClicks: $("#confirm-clicks").checked, claudeModel: $("#claude-model").value.trim(), agentModel: $("#agent-model").value.trim(), brain: $("#brain").checked, agent: $("#agent").value, agentFull: $("#agent-full").checked, quickOpen: $("#quick-open").checked, wake: $("#wake").checked, greet: $("#greet").checked, city: $("#city").value.trim(), provider: $("#provider").value, groqModel: $("#groq-model").value.trim(), geminiModel: $("#gemini-model").value.trim(), autoUpdate: $("#auto-update").checked, micDevice: $("#device").value, micSensitivity: $("#mic-sensitivity").value, micNoise: $("#mic-noise").checked, micEcho: $("#mic-echo").checked, micGain: $("#mic-gain").checked, continuous: $("#continuous").checked, remember: $("#remember").checked });
     notice("Configura\xE7\xE3o salva.");
   }
   $("#save-settings").onclick = () => save().catch((e) => notice(e.message));
@@ -487,6 +499,7 @@ V\xE1lido at\xE9 ${new Date(r.expires).toLocaleTimeString()}` : "Conex\xE3o desa
     if (e.type === "proactive") proactive(e.text);
     if (e.type === "agent") agentEvent(e);
     if (e.type === "steps") stepsEvent(e);
+    if (e.type === "shown" && pendingGreet) greet();
     if (e.type === "hud") window.dispatchEvent(new Event("enzo-hud"));
     if (e.type === "remote") {
       message("[Android] " + e.text, "user");
@@ -740,10 +753,8 @@ ${e.update.notes}`;
     $("#city").value = s.settings.city || "";
     hudMode();
     if (s.settings.greet !== false && !greeted) {
-      greeted = true;
-      const g = await invoke("greeting");
-      message(g);
-      await speak(g);
+      if (s.hidden) pendingGreet = true;
+      else await greet();
     }
     if (s.settings.wake && !active) toggleMic().catch((e) => notice("Palavra de ativa\xE7\xE3o: " + e.message));
   }).catch(() => {
@@ -908,6 +919,13 @@ ${e.update.notes}`;
   document.querySelectorAll('[data-tab="settings"]').forEach((b) => b.addEventListener("click", renderIntegrations));
   invoke("status").then((s) => {
     $("#briefing").checked = s.settings.briefing !== false;
+  }).catch(() => {
+  });
+  $("#autostart").onchange = save;
+  $("#keep-tray").onchange = save;
+  invoke("status").then((s) => {
+    $("#autostart").checked = !!s.settings.autostart;
+    $("#keep-tray").checked = s.settings.keepInTray !== false;
   }).catch(() => {
   });
 })();
