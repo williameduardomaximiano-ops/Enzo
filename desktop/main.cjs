@@ -1,6 +1,6 @@
 const {app,BrowserWindow,ipcMain,dialog,shell,globalShortcut,session,Tray,Menu,nativeImage,safeStorage}=require('electron');
 const path=require('node:path'),fs=require('node:fs'),os=require('node:os');const {spawn}=require('node:child_process');
-const {Gate,APPS,cleanText}=require('../core/policy.cjs');const {MissionCenter}=require('../core/mission-center.cjs');const {createDraft}=require('../core/outreach-draft.cjs');const {intent}=require('../core/intent.cjs');const {WorkMode}=require('../core/workmode.cjs');const {ModeStore,VoiceModes,parseTargets,normalizeName,LABELS}=require('../core/modes.cjs');const llm=require('../core/llm.cjs');const {Voice}=require('../core/voice.cjs');const {DashboardMetrics}=require('../core/dashboard-metrics.cjs');const {LocalCalendar}=require('../core/local-calendar.cjs');const {VOICES,TONES,voiceById,toneById,validateVoice,validateTone,matchVoiceIntent}=require('../core/voice-catalog.cjs');const {AVATARS,validateAvatar,avatarIntent,byId:avatarById}=require('../core/avatar-presets.cjs');const {GitHubPrivateUpdater}=require('../updater/github-private.cjs');const {OWNER,REPO,PUBLIC_KEY_PEM}=require('../core/update-channel.cjs');const {Companion}=require('../core/android.cjs');const vaultLib=require('../core/vault.cjs');
+const {Gate,APPS,cleanText}=require('../core/policy.cjs');const {MissionCenter}=require('../core/mission-center.cjs');const {createDraft}=require('../core/outreach-draft.cjs');const {observeWindows}=require('../core/windows-observer.cjs');const {intent}=require('../core/intent.cjs');const {WorkMode}=require('../core/workmode.cjs');const {ModeStore,VoiceModes,parseTargets,normalizeName,LABELS}=require('../core/modes.cjs');const llm=require('../core/llm.cjs');const {Voice}=require('../core/voice.cjs');const {DashboardMetrics}=require('../core/dashboard-metrics.cjs');const {LocalCalendar}=require('../core/local-calendar.cjs');const {VOICES,TONES,voiceById,toneById,validateVoice,validateTone,matchVoiceIntent}=require('../core/voice-catalog.cjs');const {AVATARS,validateAvatar,avatarIntent,byId:avatarById}=require('../core/avatar-presets.cjs');const {GitHubPrivateUpdater}=require('../updater/github-private.cjs');const {OWNER,REPO,PUBLIC_KEY_PEM}=require('../core/update-channel.cjs');const {Companion}=require('../core/android.cjs');const vaultLib=require('../core/vault.cjs');
 let win,tray,voice,updater,companion,workMode,modeStore,voiceModes,metrics,calendar,missions,root,python,dataDir,settings,controller,busy=false,epoch=0,updateTimer,controlProcess;const gate=new Gate();const history=[];let state='idle';
 const defaults={remember:false,continuous:false,compact:false,provider:'auto',groqModel:'openai/gpt-oss-120b',geminiModel:'gemini-3.5-flash',autoUpdate:true,micDevice:'',micSensitivity:'normal',micNoise:true,micEcho:true,micGain:true,voiceProfile:'piper-faber',voiceTone:'natural',avatarPreset:'original'};
 let apiKeys=vaultLib.emptyVault();
@@ -105,6 +105,12 @@ const single=app.requestSingleInstanceLock();if(!single)app.quit();else app.when
    await shell.openExternal(draft.url);
    audit('outreach-draft-opened',{sent:false});
    return {opened:true,sent:false};
+ });
+ ipc('observe-windows',async()=>{
+   if(gate.paused)throw Error('COSMO pausado.');
+   const confirmation=await dialog.showMessageBox(win,{type:'question',title:'COSMO • Acessibilidade',message:'Listar títulos das janelas abertas?',detail:'Apenas nomes das janelas e processos, sem ler conteúdo, capturar tela ou enviar dados à nuvem. Nenhuma janela será controlada.',buttons:['Cancelar','Permitir esta consulta'],defaultId:0,cancelId:0,noLink:true});
+   if(confirmation.response!==1)return {windows:[],approved:false};
+   return {windows:await observeWindows(),approved:true};
  });
  ipc('missions-list',()=>missions.list());
  ipc('missions-create',goal=>{if(gate.paused)throw Error('COSMO pausado. Retome primeiro.');const m=missions.create(goal);audit('mission-created',{id:m.id,kind:m.kind});emit('mission',{id:m.id,status:m.status});return m;});
