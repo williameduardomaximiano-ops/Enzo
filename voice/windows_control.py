@@ -2,12 +2,59 @@
 import ctypes,json,sys,time
 from ctypes import wintypes
 
+def set_clipboard(text):
+    kernel=ctypes.windll.kernel32;user=ctypes.windll.user32
+    kernel.GlobalAlloc.restype=wintypes.HGLOBAL;kernel.GlobalLock.restype=ctypes.c_void_p
+    kernel.GlobalLock.argtypes=[wintypes.HGLOBAL];kernel.GlobalUnlock.argtypes=[wintypes.HGLOBAL]
+    user.SetClipboardData.argtypes=[wintypes.UINT,wintypes.HANDLE];user.SetClipboardData.restype=wintypes.HANDLE
+    data=(text+'\0').encode('utf-16-le');h=kernel.GlobalAlloc(0x42,len(data));p=kernel.GlobalLock(h)
+    if not p:raise RuntimeError('Falha na área de transferência')
+    ctypes.memmove(p,data,len(data));kernel.GlobalUnlock(h)
+    for _ in range(10):
+        if user.OpenClipboard(None):break
+        time.sleep(0.05)
+    else:raise RuntimeError('Área de transferência ocupada')
+    try:user.EmptyClipboard();user.SetClipboardData(13,h)
+    finally:user.CloseClipboard()
+
+def screen_action(action,user):
+    """Clique, digitação e atalhos pedidos pelo COSMO (cada ação já foi aprovada no app)."""
+    try:user.SetProcessDPIAware()  # coordenadas em pixels físicos, iguais aos da captura
+    except Exception:pass
+    def key(v,up=False):user.keybd_event(v,0,2 if up else 0,0)
+    def combo(*vs):
+        for v in vs:key(v)
+        for v in reversed(vs):key(v,True)
+    def click(x,y,double=False):
+        w,h=user.GetSystemMetrics(0),user.GetSystemMetrics(1)
+        if not(0<=x<w and 0<=y<h):raise ValueError('Posição fora da tela')
+        user.SetCursorPos(int(x),int(y));time.sleep(0.05)
+        for _ in range(2 if double else 1):
+            user.mouse_event(0x0002,0,0,0,0);user.mouse_event(0x0004,0,0,0,0);time.sleep(0.06)
+    t=action['type']
+    if t=='click':
+        click(int(action['x']),int(action['y']),bool(action.get('double')))
+    elif t=='type_here':
+        text=action.get('text','')
+        if not isinstance(text,str) or not 0<len(text)<=4000:raise ValueError('Texto inválido')
+        if 'x' in action and 'y' in action:click(int(action['x']),int(action['y']));time.sleep(0.15)
+        set_clipboard(text);combo(0x11,0x56);time.sleep(0.05)
+        if action.get('enter'):combo(0x0D)
+    else:
+        mapping={'enter':(0x0D,),'tab':(0x09,),'escape':(0x1B,),'copy':(0x11,0x43),'paste':(0x11,0x56),'select_all':(0x11,0x41),'undo':(0x11,0x5A),'save':(0x11,0x53),'new_tab':(0x11,0x54),'close_tab':(0x11,0x57),'alt_tab':(0x12,0x09)}
+        vs=mapping.get(action.get('keys'))
+        if not vs:raise ValueError('Atalho bloqueado')
+        combo(*vs)
+    return {'ok':True}
+
 def run(action):
     if sys.platform!='win32':raise RuntimeError('Controle de teclado exige Windows.')
     user=ctypes.windll.user32
     class LASTINPUTINFO(ctypes.Structure): _fields_=[('cbSize',wintypes.UINT),('dwTime',wintypes.DWORD)]
     def last():
         x=LASTINPUTINFO();x.cbSize=ctypes.sizeof(x);user.GetLastInputInfo(ctypes.byref(x));return x.dwTime
+    if action['type'] in ('click','type_here','keys'):
+        return screen_action(action,user)
     if action['type']=='empty_recycle':
         # SHERB_NOCONFIRMATION|NOPROGRESSUI|NOSOUND; lixeira já vazia também conta como sucesso.
         hr=ctypes.windll.shell32.SHEmptyRecycleBinW(None,None,0x7)

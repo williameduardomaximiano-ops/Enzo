@@ -428,7 +428,7 @@
     $("#heading").textContent = { home: "Intelig\xEAncia com presen\xE7a.", settings: "Voc\xEA no controle.", android: "Uma presen\xE7a, dois dispositivos.", updates: "Sempre evoluindo." }[b.dataset.tab];
   });
   async function save() {
-    settings = await invoke("configure", { claudeModel: $("#claude-model").value.trim(), agentModel: $("#agent-model").value.trim(), brain: $("#brain").checked, agent: $("#agent").value, agentFull: $("#agent-full").checked, quickOpen: $("#quick-open").checked, wake: $("#wake").checked, greet: $("#greet").checked, city: $("#city").value.trim(), provider: $("#provider").value, groqModel: $("#groq-model").value.trim(), geminiModel: $("#gemini-model").value.trim(), autoUpdate: $("#auto-update").checked, micDevice: $("#device").value, micSensitivity: $("#mic-sensitivity").value, micNoise: $("#mic-noise").checked, micEcho: $("#mic-echo").checked, micGain: $("#mic-gain").checked, continuous: $("#continuous").checked, remember: $("#remember").checked });
+    settings = await invoke("configure", { confirmClicks: $("#confirm-clicks").checked, claudeModel: $("#claude-model").value.trim(), agentModel: $("#agent-model").value.trim(), brain: $("#brain").checked, agent: $("#agent").value, agentFull: $("#agent-full").checked, quickOpen: $("#quick-open").checked, wake: $("#wake").checked, greet: $("#greet").checked, city: $("#city").value.trim(), provider: $("#provider").value, groqModel: $("#groq-model").value.trim(), geminiModel: $("#gemini-model").value.trim(), autoUpdate: $("#auto-update").checked, micDevice: $("#device").value, micSensitivity: $("#mic-sensitivity").value, micNoise: $("#mic-noise").checked, micEcho: $("#mic-echo").checked, micGain: $("#mic-gain").checked, continuous: $("#continuous").checked, remember: $("#remember").checked });
     notice("Configura\xE7\xE3o salva.");
   }
   $("#save-settings").onclick = () => save().catch((e) => notice(e.message));
@@ -844,6 +844,17 @@ ${e.update.notes}`;
     $("#claude-model").value = s.settings.claudeModel || "claude-haiku-5-5";
     $("#agent-model").value = s.settings.agentModel || "claude-sonnet-5-5";
     $("#brain").checked = s.settings.brain !== false;
+  }).catch(() => {
+  });
+  $("#confirm-clicks").onchange = async () => {
+    if (!$("#confirm-clicks").checked && !confirm("Deixar o COSMO clicar e digitar sem perguntar? Ele pode errar o lugar do clique.")) {
+      $("#confirm-clicks").checked = true;
+      return;
+    }
+    save();
+  };
+  invoke("status").then((s) => {
+    $("#confirm-clicks").checked = s.settings.confirmClicks !== false;
   }).catch(() => {
   });
 })();
