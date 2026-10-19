@@ -4,6 +4,10 @@ on:
     branches: ['feature/cosmo-rename']
     paths:
       - '.github/workflows/build-cosmo-windows.yml'
+      - 'scripts/installer.nsi'
+      - 'scripts/uninstall-list.cjs'
+      - 'package.json'
+      - 'package-lock.json'
   workflow_dispatch:
 permissions:
   contents: read
