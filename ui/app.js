@@ -309,3 +309,34 @@ $('#controls-inspect').onclick=async()=>{
   }
  }catch(e){list.textContent='Falha: '+e.message;}
 };
+
+// Prospecção de candidatos comerciais: a fonte é indicada e nenhum contato é feito.
+$('#prospecting-form').addEventListener('submit',async e=>{
+ e.preventDefault();
+ const city=$('#prospecting-city').value.trim(),list=$('#prospecting-results');
+ list.replaceChildren();$('#prospecting-note').textContent='Consultando dados públicos, aguarde...';
+ try{
+  const result=await invoke('prospectingRestaurants',city);
+  if(result.cancelled){$('#prospecting-note').textContent='Pesquisa cancelada.';return;}
+  $('#prospecting-note').textContent='© OpenStreetMap contributors · '+result.city+' · '+result.candidates.length+' encontrados para revisão · '+new Date(result.searchedAt).toLocaleString('pt-BR');
+  if(!result.candidates.length){list.textContent='Nenhum cadastro de restaurante encontrado nesta consulta. Tente outra cidade.';return;}
+  for(const c of result.candidates){
+   const row=document.createElement('article');row.className='cosmo-mission';
+   const name=document.createElement('strong');name.textContent=c.name;
+   const meta=document.createElement('p');meta.textContent=(c.address||'Endereço não informado')+' · '+(c.phone?'Telefone cadastrado: '+c.phone:'Telefone não informado');
+   const opportunity=document.createElement('p');opportunity.textContent=c.opportunity;
+   const source=document.createElement('small');source.textContent='Cadastro: '+c.osmUrl+' · dados não verificados';
+   row.append(name,meta,opportunity,source);
+   if(c.phone){
+    const select=document.createElement('button');select.type='button';select.textContent='Preparar contato para revisão';
+    select.onclick=()=>{
+      $('#outreach-company').value=c.name;$('#outreach-phone').value=c.phone;
+      $('#outreach-site').focus();
+      notice('Contato preenchido. Informe uma prévia HTTPS verdadeira, revise o interesse do destinatário e só então abra o rascunho.');
+    };
+    row.append(select);
+   }
+   list.appendChild(row);
+  }
+ }catch(err){$('#prospecting-note').textContent='Consulta indisponível: '+err.message;}
+});
