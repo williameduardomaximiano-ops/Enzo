@@ -2,6 +2,12 @@ const {modeIntent}=require('./mode-intents.cjs');const {stripInvocation}=require
 function norm(s){return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.!?]/g,'').trim();}
 function intent(text){const s=norm(stripInvocation(text));
  if(/^(pare|parar|cancele|cancelar|silencio|modo privacidade)$/.test(s))return {type:'stop'};
+ if(/^(?:liste|listar|mostre|mostrar) (?:minhas|as) missoes$/.test(s)||/^(?:minhas missoes|missoes salvas)$/.test(s))return {type:'mission_list'};
+ const original=String(text).trim().replace(/^(?:(?:ei[, ]+)?(?:cosmo|enzo)[, ]*)/i,'').trim();
+ const mission=original.match(/^(?:nova miss[aã]o|crie (?:uma )?miss[aã]o|criar (?:uma )?miss[aã]o)(?: para| de|:)?\s+(.+)$/i);
+ if(mission)return {type:'mission_create',goal:mission[1].trim()};
+ if(/^(?:crie|criar|desenvolva|desenvolver|construa|construir)\s+(?:um|uma|o|a)\s+(?:site|landing page|crm|e-commerce|ecommerce|loja virtual|loja online|aplicativo|app|sistema)\b/i.test(original))return {type:'mission_create',goal:original};
+
  if(/^(?:(?:iniciar|inicia|ative|ativar|abrir|abre|come[cç]ar|comece|ligar|liga|entrar no|entre no) (?:o )?)?modo (?:de )?trabalho$/.test(s)||/^(vamos trabalhar|hora de trabalhar|iniciar expediente|inicia o expediente)$/.test(s))return {type:'work_mode_start'};
  if(/^(?:encerrar|encerre|desativar|desative|sair do|finalizar|finalize|fechar|feche) (?:o )?modo (?:de )?trabalho$/.test(s))return {type:'work_mode_end'};
  const mode=modeIntent(text);if(mode)return mode;

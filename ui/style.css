@@ -35,3 +35,12 @@
 #agenda-today{font-size:12px;color:#bdcbdb;min-height:60px;line-height:1.6}
 @media(max-width:1150px){.metric-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:850px){.dashboard-widgets,.calendar-layout{grid-template-columns:1fr}}
+
+
+/* COSMO: Central de Missões, dados exclusivamente do backend local. */
+.cosmo-mission-list{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+.cosmo-mission{padding:14px;border:1px solid rgba(114,192,218,.24);border-radius:12px;background:rgba(11,25,42,.65);overflow-wrap:anywhere}
+.cosmo-mission p{margin:10px 0;line-height:1.6}
+.cosmo-mission .button-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.cosmo-mission-log{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow-y:auto;background:#07101d;border:1px solid rgba(114,192,218,.22);border-radius:10px;padding:12px;font-size:12px}
+#mission-goal{width:100%;resize:vertical;min-height:112px}

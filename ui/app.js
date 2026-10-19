@@ -18,7 +18,7 @@ async function toggleMic(){if(active){generation++;closeMic();stopAudio();await 
 processor.onaudioprocess=e=>{if(!active||busy)return;const input=new Float32Array(e.inputBuffer.getChannelData(0));const rms=Math.sqrt(input.reduce((s,x)=>s+x*x,0)/input.length);setMeter(Math.min(1,rms/.1));const thr=SENS[settings.micSensitivity]||.013;if(rms>thr){heard=true;silent=0;}else silent+=input.length;frames.push(input);samples+=input.length;if(!heard&&samples>16000){frames=frames.slice(-3);samples=frames.reduce((n,x)=>n+x.length,0);}if(heard&&(silent>16000*.85||samples>=16000*28)){const chunks=frames;frames=[];samples=0;heard=false;silent=0;transcribe(chunks);}};
 }catch(e){closeMic();notice('Microfone: '+e.message);state('idle')}}
 $('#chat-form').addEventListener('submit',e=>{e.preventDefault();const text=$('#input').value.trim();if(text){$('#input').value='';send(text)}});$('#input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('#chat-form').requestSubmit()}});document.querySelectorAll('[data-command]').forEach(b=>b.onclick=()=>send(b.dataset.command));$('#mic').onclick=()=>toggleMic().catch(e=>notice(e.message));$('#stop').onclick=emergency;$('#resume').onclick=async()=>{await invoke('resume');$('#resume').hidden=true;notice('');state('idle')};$('#compact').onclick=()=>invoke('window','compact');
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.id===b.dataset.tab));document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('selected',x===b));$('#heading').textContent=({home:'Inteligência com presença.',settings:'Você no controle.',appearance:'Escolha a aparência.',android:'Uma presença, dois dispositivos.',updates:'Sempre evoluindo.'})[b.dataset.tab]});
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.id===b.dataset.tab));document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('selected',x===b));$('#heading').textContent=({home:'Inteligência com presença.',settings:'Você no controle.',appearance:'Escolha a aparência.',android:'Uma presença, dois dispositivos.',updates:'Sempre evoluindo.',missions:'Missões com resultados reais.'})[b.dataset.tab]});
 
 function applyAvatar(id){
  holo?.setPreset(id);
@@ -75,7 +75,7 @@ function updateVoiceAvailability(){
 
 async function save(){settings=await invoke('configure',{provider:$('#provider').value,groqModel:$('#groq-model').value.trim(),geminiModel:$('#gemini-model').value.trim(),autoUpdate:$('#auto-update').checked,micDevice:$('#device').value,micSensitivity:$('#mic-sensitivity').value,micNoise:$('#mic-noise').checked,micEcho:$('#mic-echo').checked,micGain:$('#mic-gain').checked,continuous:$('#continuous').checked,remember:$('#remember').checked,voiceProfile:$('#voice-profile').value,voiceTone:$('#voice-tone').value});notice('Configuração salva.');}$('#save-settings').onclick=()=>save().catch(e=>notice(e.message));$('#continuous').onchange=save;$('#remember').onchange=save;
 $('#test-voice').onclick=()=>speak('Olá, eu sou o Cosmo. Esta é uma demonstração da voz que você escolheu. Como ficou?');$('#clear').onclick=async()=>{await invoke('clearHistory');$('#messages').replaceChildren();notice('Conversa apagada.');};$('#pair').onclick=async()=>{try{const r=await invoke('android',true);$('#pair-info').textContent=r?`Abra no Android:\n${r.urls.join('\n')}\n\nCódigo: ${r.code}\nVálido até ${new Date(r.expires).toLocaleTimeString()}`:'Conexão desativada.';}catch(e){notice(e.message)}};$('#unpair').onclick=async()=>{await invoke('android',false);$('#pair-info').textContent='Conexão desativada.';};$('#check-update').onclick=async()=>{try{$('#update-info').textContent=await invoke('checkUpdate')}catch(e){$('#update-info').textContent=e.message}};$('#install-update').onclick=async()=>{try{$('#update-info').textContent=await invoke('installUpdate')}catch(e){$('#update-info').textContent=e.message}};
-api.onEvent(e=>{if(e.type==='state'&&e.state!=='idle')state(e.state);if(e.type==='notice')notice(e.text);if(e.type==='stop'){generation++;closeMic();stopAudio();busy=false;$('#send').disabled=false;$('#resume').hidden=false;state('paused')}if(e.type==='toggle-mic')toggleMic();if(e.type==='compact')document.body.classList.toggle('compact',e.enabled);if(e.type==='avatar'&&e.avatar){settings.avatarPreset=e.avatar;applyAvatar(e.avatar)}if(e.type==='remote'){message('[Android] '+e.text,'user');message(e.reply);}if(e.type==='update'&&e.update){$('#update-info').textContent=`Versão ${e.update.version}\n${e.update.notes}`;notice('Há uma atualização verificada disponível.');}});
+api.onEvent(e=>{if(e.type==='state'&&e.state!=='idle')state(e.state);if(e.type==='notice')notice(e.text);if(e.type==='stop'){generation++;closeMic();stopAudio();busy=false;$('#send').disabled=false;$('#resume').hidden=false;state('paused')}if(e.type==='toggle-mic')toggleMic();if(e.type==='compact')document.body.classList.toggle('compact',e.enabled);if(e.type==='avatar'&&e.avatar){settings.avatarPreset=e.avatar;applyAvatar(e.avatar)}if(e.type==='remote'){message('[Android] '+e.text,'user');message(e.reply);}if(e.type==='mission'){if(e.log)$('#mission-log').textContent=($('#mission-log').textContent+'\n'+e.log).slice(-9000);if(e.status)refreshMissions().catch(err=>notice('Missão: '+err.message));}if(e.type==='update'&&e.update){$('#update-info').textContent=`Versão ${e.update.version}\n${e.update.notes}`;notice('Há uma atualização verificada disponível.');}});
 invoke('status').then(s=>{settings=s.settings;loadAvatarGallery().catch(e=>notice('Aparências: '+e.message));$('#provider').value=settings.provider||'auto';$('#voice-profile').value=settings.voiceProfile||'piper-faber';$('#voice-tone').value=settings.voiceTone||'natural';loadVoices().catch(e=>notice('Catálogo de vozes: '+e.message));$('#groq-model').value=settings.groqModel||'openai/gpt-oss-120b';$('#gemini-model').value=settings.geminiModel||'gemini-3.5-flash';$('#continuous').checked=settings.continuous;$('#remember').checked=settings.remember;$('#auto-update').checked=settings.autoUpdate!==false;$('#device').value=settings.micDevice||'';$('#mic-sensitivity').value=settings.micSensitivity||'normal';$('#mic-noise').checked=settings.micNoise!==false;$('#mic-echo').checked=settings.micEcho!==false;$('#mic-gain').checked=settings.micGain!==false;refreshMics().catch(()=>{});$('#version').textContent=s.version;$('#hardware').textContent=`Detectado: ${s.ramGB} GB de RAM · ${s.cpus} processadores lógicos`;const p=s.providers||{};$('#vault-status').textContent=`Cofre: Groq ${p.groq?'✓':'—'} · Gemini ${p.gemini?'✓':'—'} · GitHub ${p.github?'✓':'—'}${s.encryption?'':' · criptografia indisponível'}`;}).catch(e=>notice(e.message));
 
 $('#get-vc').onclick=()=>invoke('dependency','vc').catch(e=>notice(e.message));$('#diagnostics').onclick=async()=>{try{const d=await invoke('diagnostics');const p=d.providers||{};notice(`Voz: ${d.voice.tts?'modelo presente':'modelo ausente'} · Reconhecimento: ${d.voice.stt?'modelo presente':'modelo ausente'} · Nuvem: Groq ${p.groq?'✓':'—'} Gemini ${p.gemini?'✓':'—'} GitHub ${p.github?'✓':'—'}. A presença dos modelos não substitui o teste de áudio.`)}catch(e){notice(e.message)}};
@@ -167,3 +167,74 @@ $('#event-form').addEventListener('submit',async e=>{
 });
 refreshDashboard().catch(e=>notice('Widgets: '+e.message));
 setInterval(()=>{if(!document.hidden)refreshDashboard().catch(()=>{});},12000);
+
+
+// Central de Missões: os botões acionam o backend real; jamais simulam execução.
+async function refreshMissions(){
+ const missions=await invoke('missionsList');
+ const list=$('#mission-list');list.replaceChildren();
+ if(!missions.length){list.textContent='Nenhuma missão criada. Descreva seu primeiro projeto acima.';return;}
+ for(const m of missions){
+  const card=document.createElement('article');card.className='cosmo-mission';
+  const heading=document.createElement('strong');heading.textContent=m.kind.toUpperCase()+' · '+m.status;
+  const goal=document.createElement('p');goal.textContent=m.goal;
+  const date=document.createElement('small');date.textContent='Criada em '+new Date(m.createdAt).toLocaleString('pt-BR');
+  const row=document.createElement('div');row.className='button-row';
+  const run=document.createElement('button');run.type='button';run.textContent=m.status==='revisao'?'Executar novamente':'Executar no OpenCode';
+  run.disabled=m.status==='executando';
+  run.onclick=async()=>{
+   run.disabled=true;
+   $('#mission-log').textContent='Solicitando confirmação no computador...';
+   try{
+    const result=await invoke('missionsRun',m.id);
+    notice(result.reason||('Missão: '+result.status+'. Abra a pasta e revise os arquivos.'));
+    await refreshMissions();
+   }catch(e){notice('OpenCode: '+e.message);await refreshMissions().catch(()=>{});}
+  };
+  const folder=document.createElement('button');folder.type='button';folder.textContent='Abrir pasta';folder.onclick=()=>invoke('missionsOpen',m.id).catch(e=>notice('Pasta: '+e.message));
+  const preview=document.createElement('button');preview.type='button';preview.textContent='Ver prévia HTML';preview.onclick=()=>invoke('missionsPreview',m.id).catch(e=>notice('Prévia: '+e.message));
+  const publish=document.createElement('button');publish.type='button';publish.textContent='Publicar prévia Vercel';
+  publish.disabled=!['revisao','previa'].includes(m.status);
+  publish.onclick=async()=>{
+   publish.disabled=true;$('#mission-log').textContent='Solicitando autorização para publicar na Vercel...';
+   try{const result=await invoke('missionsPublish',m.id);notice(result.previewUrl?'Prévia publicada e aberta no navegador.':result.reason||'Nenhum deploy realizado.');await refreshMissions();}
+   catch(err){notice('Vercel: '+err.message);await refreshMissions().catch(()=>{});}
+  };
+  row.append(run,folder,preview,publish);
+  if(m.previewUrl){
+   const live=document.createElement('button');live.type='button';live.textContent='Ver site hospedado';
+   live.onclick=()=>invoke('missionsOpenLive',m.id).catch(e=>notice('Preview: '+e.message));
+   row.appendChild(live);
+  }
+  card.append(heading,goal,date,row);
+  if(m.lastError){const error=document.createElement('p');error.className='muted';error.textContent='Último erro: '+m.lastError;card.append(error);}
+  list.appendChild(card);
+ }
+}
+$('#mission-form').addEventListener('submit',async e=>{
+ e.preventDefault();
+ try{
+  const goal=$('#mission-goal').value.trim();
+  const m=await invoke('missionsCreate',goal);
+  $('#mission-goal').value='';
+  notice('Missão '+m.kind+' criada. Nenhuma ação foi executada ainda.');
+  await refreshMissions();
+ }catch(err){notice('Missão: '+err.message);}
+});
+$('#mission-refresh').onclick=()=>refreshMissions().catch(e=>notice('Missões: '+e.message));
+$('#observe-windows').onclick=async()=>{
+ try{
+  const r=await invoke('observeWindows');
+  $('#windows-result').textContent=!r.approved?'Consulta não autorizada.':r.windows.length?r.windows.map(w=>w.title+' (processo '+w.processId+')').join('\n'):'Nenhuma janela acessível nesta sessão.';
+ }catch(err){$('#windows-result').textContent='Erro: '+err.message;}
+};
+
+$('#outreach-form').addEventListener('submit',async e=>{
+ e.preventDefault();
+ try{
+  const data={company:$('#outreach-company').value,phone:$('#outreach-phone').value,siteUrl:$('#outreach-site').value};
+  const r=await invoke('outreachDraft',data);
+  notice(r.opened?'Rascunho aberto. Revise e envie somente se for apropriado.':'Envio cancelado. Nada foi enviado.');
+ }catch(err){notice('WhatsApp: '+err.message);}
+});
+refreshMissions().catch(e=>notice('Missões: '+e.message));

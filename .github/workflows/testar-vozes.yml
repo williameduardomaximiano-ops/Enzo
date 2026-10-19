@@ -1,10 +1,14 @@
 name: COSMO — identidade, vozes, avatares e widgets
 on:
   push:
-    branches: ['feature/vozes-masculinas-015', 'feature/cosmo-rename']
+    branches: ['feature/vozes-masculinas-015', 'feature/cosmo-rename', 'feature/cosmo-missoes-autonomia']
     paths:
       - 'core/voice-catalog.cjs'
       - 'core/assistant-identity.cjs'
+      - 'core/mission-center.cjs'
+      - 'core/outreach-draft.cjs'
+      - 'core/windows-observer.cjs'
+      - 'core/vercel-preview.cjs'
       - 'core/intent.cjs'
       - 'core/mode-intents.cjs'
       - 'core/llm.cjs'
@@ -24,6 +28,10 @@ on:
       - 'tests/avatar-presets.test.cjs'
       - 'tests/cosmo-identity.test.cjs'
       - 'tests/cosmo-release-sign.test.cjs'
+      - 'tests/mission-center.test.cjs'
+      - 'tests/outreach-draft.test.cjs'
+      - 'tests/windows-observer.test.cjs'
+      - 'tests/vercel-preview.test.cjs'
       - 'tests/dashboard-metrics.test.cjs'
       - 'tests/local-calendar.test.cjs'
       - '.github/workflows/testar-vozes.yml'
@@ -44,6 +52,10 @@ jobs:
       - name: Checar sintaxe, vozes e avatares
         run: |
           node --check core/assistant-identity.cjs
+          node --check core/mission-center.cjs
+          node --check core/outreach-draft.cjs
+          node --check core/windows-observer.cjs
+          node --check core/vercel-preview.cjs
           node --check scripts/sign-release.cjs
           node --check core/intent.cjs
           node --check core/mode-intents.cjs
@@ -54,7 +66,7 @@ jobs:
           node --check desktop/main.cjs
           node --check desktop/preload.cjs
           python -m py_compile voice/worker.py
-          node --test tests/voice-catalog.test.cjs tests/avatar-presets.test.cjs tests/dashboard-metrics.test.cjs tests/local-calendar.test.cjs tests/cosmo-identity.test.cjs tests/cosmo-release-sign.test.cjs
+          npm test
       - name: Verificar montagem da interface
         run: |
           npm ci
