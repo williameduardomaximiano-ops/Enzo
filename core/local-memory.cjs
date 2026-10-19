@@ -23,7 +23,7 @@ class MemoryStore {
    const parsed=JSON.parse(this.decrypt(data));
    if(!Array.isArray(parsed)||parsed.length>MAX)throw Error('Estrutura de memória inválida.');
    this.items=parsed.map(x=>{
-    if(!x||typeof x.id!=='string'||!crypto.randomUUID||!/^[a-f\d-]{36}$/.test(x.id)||typeof x.text!=='string'||x.text.length>700||typeof x.at!=='string')throw Error('Item inválido.');
+    if(!x||typeof x.id!=='string'||!/^[a-f\d-]{36}$/.test(x.id)||typeof x.text!=='string'||x.text.length>700||typeof x.at!=='string')throw Error('Item inválido.');
     return {id:x.id,text:x.text,at:x.at};
    });
   }catch(e){this.readError='Memórias protegidas não puderam ser lidas. Arquivo preservado; restaure um backup antes de gravar. '+e.message;}
