@@ -1,7 +1,7 @@
-name: COSMO 0.1.8 - instalador Windows de teste
+name: COSMO 0.1.9 - instalador Windows de teste
 on:
   push:
-    branches: ['feature/cosmo-rename', 'feature/cosmo-missoes-autonomia', 'feature/cosmo-017-capabilities', 'fix/cosmo-018-updater-packaging']
+    branches: ['feature/cosmo-rename', 'feature/cosmo-missoes-autonomia', 'feature/cosmo-017-capabilities', 'fix/cosmo-018-updater-packaging', 'fix/cosmo-019-microfone-holograma']
     paths:
       - '.github/workflows/build-cosmo-windows.yml'
       - 'scripts/installer.nsi'
@@ -47,17 +47,17 @@ jobs:
       - name: Validar nome e hash do instalador
         shell: pwsh
         run: |
-          $p = 'dist/ENZO-0.1.8-Windows-x64.exe'
+          $p = 'dist/ENZO-0.1.9-Windows-x64.exe'
           if (!(Test-Path $p)) { throw "Instalador nao encontrado: $p" }
           if ((Get-Item $p).Length -lt 1000000) { throw "Instalador muito pequeno" }
           $sha = (Get-FileHash $p -Algorithm SHA256).Hash.ToLowerInvariant()
-          "SHA256: $sha" | Out-File -FilePath dist/SHA256-COSMO-0.1.8.txt -Encoding utf8
+          "SHA256: $sha" | Out-File -FilePath dist/SHA256-COSMO-0.1.9.txt -Encoding utf8
           Get-Item $p | Select-Object Name,Length
       - uses: actions/upload-artifact@v4
         with:
-          name: COSMO-0.1.8-Windows-x64-TESTE
+          name: COSMO-0.1.9-Windows-x64-TESTE
           path: |
-            dist/ENZO-0.1.8-Windows-x64.exe
-            dist/SHA256-COSMO-0.1.8.txt
+            dist/ENZO-0.1.9-Windows-x64.exe
+            dist/SHA256-COSMO-0.1.9.txt
           if-no-files-found: error
           retention-days: 14
