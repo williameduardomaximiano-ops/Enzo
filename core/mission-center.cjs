@@ -80,6 +80,15 @@ class MissionCenter {
   const folder=path.join(this.dir,id);
   this.fs.mkdirSync(folder,{recursive:false});
   this.fs.writeFileSync(path.join(folder,'BRIEFING.md'),brief(goal,kind),{flag:'wx',mode:0o600});
+  // No modo nao interativo, bloqueia terminal, leitura de .env e acesso fora do projeto.
+  // Compatibilidade com o esquema de permissoes do OpenCode 1.x.
+  const opencodeConfig={$schema:'https://opencode.ai/config.json',default_agent:'build',permission:{
+   bash:'deny',external_directory:'deny',task:'deny',edit:'allow',
+   read:{'*':'allow','*.env':'deny','*.env.*':'deny','*.env.example':'allow'},
+   webfetch:'allow',websearch:'allow'
+  }};
+  this.fs.writeFileSync(path.join(folder,'opencode.json'),JSON.stringify(opencodeConfig,null,2),{flag:'wx',mode:0o600});
+
   const item={id,goal,kind,status:'rascunho',createdAt:at,updatedAt:at,folder,lastError:null};
   this.items.push(item);this.persist();return {...item};
  }
