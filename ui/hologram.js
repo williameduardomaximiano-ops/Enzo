@@ -10,11 +10,13 @@ const VERTEX = `
   varying vec2 vUv;
   uniform float uTiltX;
   uniform float uTiltY;
+  uniform float uPhotoMode;
   void main() {
     vUv = uv;
     vec3 p = position;
     // Microprofundidade apenas na região do rosto, sem mover o fundo espacial.
-    vec2 rel = (uv - vec2(.422, .575)) / vec2(.23, .39);
+    vec2 faceCenter = mix(vec2(.422,.575),vec2(.5,.55),uPhotoMode);
+    vec2 rel = (uv - faceCenter) / vec2(.23,.39);
     float face = exp(-dot(rel,rel)*2.2);
     p.z += face * .028;
     p.x += face * uTiltX * .013;
@@ -30,6 +32,8 @@ const FRAGMENT = `
   uniform float uBlink;
   uniform float uBrow;
   uniform float uEnergy;
+  uniform float uPhotoMode;
+  uniform float uBrainGlow;
   uniform float uTiltX;
   uniform float uTiltY;
   varying vec2 vUv;
@@ -40,18 +44,19 @@ const FRAGMENT = `
   void main() {
     vec2 uv = vUv;
     // Movimento quase imperceptível da cabeça, com fundo fixo.
-    float face=ellipse(uv,vec2(.422,.565),vec2(.245,.405));
+    float face=ellipse(uv,mix(vec2(.422,.565),vec2(.5,.52),uPhotoMode),vec2(.245,.405));
     uv.x -= uTiltX*.0025*face;
     uv.y -= uTiltY*.0017*face;
 
     // Amplitude da voz abre e fecha o contorno dos lábios.
-    float lips=ellipse(uv,vec2(.419,.343),vec2(.100,.042));
-    uv.y += uMouth*.012*lips*sign(uv.y-.343);
+    vec2 lipCenter=mix(vec2(.419,.343),vec2(.5,.31),uPhotoMode);
+    float lips=ellipse(uv,lipCenter,vec2(.10,.045));
+    uv.y += uMouth*.012*lips*sign(uv.y-lipCenter.y);
 
     // Pequena atuação das sobrancelhas nos estados de resposta/permissão.
     float browL=ellipse(uv,vec2(.347,.654),vec2(.085,.055));
     float browR=ellipse(uv,vec2(.516,.654),vec2(.085,.055));
-    uv.y -= uBrow*.0035*(browL+browR);
+    uv.y -= uBrow*.0035*(browL+browR)*(1.0-uPhotoMode);
 
     // Piscar: amostra progressivamente a pálpebra, sem sobrepor olhos novos.
     vec2 leftEye=vec2(.348,.585), rightEye=vec2(.518,.585);
@@ -59,7 +64,7 @@ const FRAGMENT = `
     float r=ellipse(uv,rightEye,vec2(.063,.030));
     float eyeMask=clamp(l+r,0.0,1.0);
     float direction=uv.x<.435?leftEye.y:rightEye.y;
-    uv.y+=uBlink*eyeMask*(direction-uv.y)*.93;
+    uv.y+=uBlink*eyeMask*(direction-uv.y)*.93*(1.0-uPhotoMode);
 
     vec3 col=texture2D(uImage,clamp(uv,vec2(.001),vec2(.999))).rgb;
     // O modo original mantém cada cor da imagem sem modificação.
@@ -71,9 +76,15 @@ const FRAGMENT = `
       col=mix(col,tint,glow*.90);
     }
     // Escurece o interior da boca durante a fala, conservando o wireframe.
-    float inner=ellipse(vUv,vec2(.417,.340),vec2(.076,.008))*uMouth;
+    float inner=ellipse(vUv,mix(vec2(.417,.340),vec2(.5,.307),uPhotoMode),vec2(.076,.008))*uMouth;
     col *= 1.0-inner*.31;
     // Nenhuma recoloração do original. Somente intensidade ligada ao estado.
+    // Quando imagem preta/dourada está ativa, reduzir apenas os circuitos dourados no silêncio.
+    // A aparência e as cores originais são preservadas; brilho é regulado por estado.
+    float isGold=smoothstep(.14,.60,col.r)*smoothstep(1.03,1.32,col.r/max(col.g,.005))*smoothstep(1.08,1.55,col.g/max(col.b,.005));
+    float brain=ellipse(vUv,vec2(.50,.735),vec2(.36,.27));
+    float dim=1.0-uPhotoMode*isGold*brain*(.80-.78*clamp(uBrainGlow,0.0,1.0));
+    col*=dim;
     col*=mix(.87,1.03,clamp(uEnergy,0.0,1.0));
     gl_FragColor=vec4(col,1.0);
   }
@@ -88,7 +99,7 @@ export function createHologram(canvas) {
   camera.position.z=3;
   const uniforms = {
     uImage:{value:null}, uMouth:{value:0}, uBlink:{value:0},
-    uBrow:{value:0}, uEnergy:{value:1}, uTiltX:{value:0},uTiltY:{value:0},
+    uBrow:{value:0}, uEnergy:{value:1}, uPhotoMode:{value:0},uBrainGlow:{value:0.18}, uTiltX:{value:0},uTiltY:{value:0},
     uAccent:{value:new THREE.Color(0x55d6ef)}, uVisualMode:{value:0}
   };
   // Muitos segmentos: permite a pequena deformação espacial do rosto.
@@ -102,7 +113,7 @@ export function createHologram(canvas) {
   let blinkCounter=0;
   const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false;
   const textureLoader=new THREE.TextureLoader();
-  const texture=textureLoader.load(IMAGE, t=>{
+  let texture=textureLoader.load(IMAGE, t=>{
     if(disposed){t.dispose();return;}
     t.colorSpace=THREE.SRGBColorSpace;
     t.magFilter=THREE.LinearFilter;
@@ -125,7 +136,7 @@ export function createHologram(canvas) {
     const imageAspect=(texture.image?.width&&texture.image?.height)
       ?texture.image.width/texture.image.height:1536/1135;
     // Cover, sem distorcer. Nunca altera a proporção da imagem aprovada.
-    const h=Math.max(2,2*viewport/imageAspect);
+    const h=uniforms.uPhotoMode.value>0.5?2:Math.max(2,2*viewport/imageAspect);
     plane.scale.set(h*imageAspect,h,1);
   }
   const observer=new ResizeObserver(resize);observer.observe(canvas);resize();
@@ -147,11 +158,16 @@ export function createHologram(canvas) {
     uniforms.uBlink.value=blink;
     smoothLevel+=(level-smoothLevel)*.35;
     uniforms.uMouth.value=state==='speaking'?Math.min(1,smoothLevel*5):0;
-    uniforms.uBrow.value=state==='thinking'?.7:state==='permission'?.95:0;
+    uniforms.uBrow.value=uniforms.uPhotoMode.value?0:(state==='thinking'?.7:state==='permission'?.95:0);
     const brightness=state==='paused'?.77:state==='listening'?1.07:1;
+    const gold=state==='paused'?.06:state==='speaking'?1:state==='listening'?.58:state==='thinking'?.42:.18;
+    uniforms.uBrainGlow.value+=(gold-uniforms.uBrainGlow.value)*.08;
     uniforms.uEnergy.value+=(brightness-uniforms.uEnergy.value)*.1;
-    const x=reduced?0:targetX*.65;
-    const y=reduced?0:targetY*.45;
+    // Pequenos movimentos espontâneos, mesmo sem interação do mouse.
+    const idleX=Math.sin(time*.34)*.09+Math.sin(time*.17)*.04;
+    const idleY=Math.sin(time*.29+.4)*.065;
+    const x=reduced?0:(targetX*.65+idleX);
+    const y=reduced?0:(targetY*.45+idleY);
     uniforms.uTiltX.value+=(x-uniforms.uTiltX.value)*.08;
     uniforms.uTiltY.value+=(y-uniforms.uTiltY.value)*.08;
     if(ready)renderer.render(scene,camera);
@@ -160,6 +176,20 @@ export function createHologram(canvas) {
   canvas.dataset.hologram='imagem-oficial-animada-v1';
   canvas.dataset.visualReference='holograma-oficial.jpg';
   return {
+    setImage(uri){
+      if(typeof uri!=='string'||!/^data:image\/jpeg;base64,[a-z0-9+/=]+$/i.test(uri)||uri.length>4400000)return Promise.reject(Error('Imagem inválida.'));
+      return new Promise((resolve,reject)=>{
+        textureLoader.load(uri,t=>{
+          if(disposed){t.dispose();reject(Error('Holograma encerrado.'));return;}
+          t.colorSpace=THREE.SRGBColorSpace;
+          t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;
+          const old=texture;texture=t;uniforms.uImage.value=t;uniforms.uPhotoMode.value=1;
+          uniforms.uVisualMode.value=0;canvas.dataset.hologram='cosmo-original-preto-dourado';
+          if(old&&old!==t)old.dispose();
+          resize();resolve(true);
+        },undefined,()=>reject(Error('Não foi possível carregar a foto original.')));
+      });
+    },
     setPreset(name){if(!Object.hasOwn(accentColors,name))return false;uniforms.uAccent.value.setHex(accentColors[name]);uniforms.uVisualMode.value=name==='original'?0:1;canvas.dataset.avatarPreset=name;return true;},
     setState(s){state=s},
     setLevel(v){level=Number.isFinite(v)?Math.max(0,v):0},
