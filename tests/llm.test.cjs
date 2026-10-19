@@ -4,6 +4,7 @@ function body(req){return new Promise((resolve,reject)=>{let s='';req.on('data',
 async function listen(handler){const srv=http.createServer(handler);await new Promise(r=>srv.listen(0,'127.0.0.1',r));const port=srv.address().port;return {srv,port,close:async()=>{srv.closeAllConnections();await new Promise(r=>srv.close(r));}};}
 test('resposta direta e proposta de ação',()=>{
  assert.equal(llm.parseReply('Olá, William.').say,'Olá, William.');
+ assert.equal(llm.parseReply('{"say":"Pode repetir?"}').say,'Pode repetir?');
  const r=llm.parseReply(JSON.stringify({say:'Abrir?',action:{type:'open_app',app:'calculadora'}}));
  assert.equal(r.action.app,'calculadora');
  assert.equal(llm.modelMissing(404,''),true);
@@ -47,3 +48,5 @@ test('Groq e Gemini via mocks locais, com fallback Groq→Gemini',async()=>{
   catch(e){const m=String(e.message);assert.ok(m.includes('Groq e Gemini falharam'));assert.ok(!m.includes('test-groq-key-12345')&&!m.includes('test-gemini-key-12345'));}
  }finally{delete process.env.ENZO_GROQ_BASE;delete process.env.ENZO_GEMINI_BASE;await groq.close().catch(()=>{});await gemini.close();}
 });
+
+

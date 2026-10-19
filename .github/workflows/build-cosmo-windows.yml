@@ -1,7 +1,7 @@
-name: COSMO 0.1.8 - instalador Windows de teste
+name: COSMO 0.1.10 - instalador Windows de teste
 on:
   push:
-    branches: ['feature/cosmo-rename', 'feature/cosmo-missoes-autonomia', 'feature/cosmo-017-capabilities', 'fix/cosmo-018-updater-packaging']
+    branches: ['feature/cosmo-rename', 'feature/cosmo-missoes-autonomia', 'feature/cosmo-017-capabilities', 'fix/cosmo-018-updater-packaging', 'fix/cosmo-019-voice']
     paths:
       - '.github/workflows/build-cosmo-windows.yml'
       - 'scripts/installer.nsi'
@@ -13,6 +13,7 @@ on:
       - 'core/**'
       - 'desktop/**'
       - 'ui/**'
+      - 'voice/**'
       - 'tests/**'
       - 'docs/COSMO-018-PACKAGING.md'
       - 'docs/COSMO-MISSOES-016.md'
@@ -38,6 +39,8 @@ jobs:
         run: npm ci
       - name: Validar testes
         run: npm test
+      - name: Validar filtro de transcricao
+        run: python -m unittest discover -s tests -p test_transcript_quality.py
       - name: Preparar runtime Python e vozes com hashes verificados
         run: python scripts/prepare-runtime.py
       - name: Gerar instalador Windows x64
@@ -47,17 +50,19 @@ jobs:
       - name: Validar nome e hash do instalador
         shell: pwsh
         run: |
-          $p = 'dist/ENZO-0.1.8-Windows-x64.exe'
+          $p = 'dist/ENZO-0.1.10-Windows-x64.exe'
           if (!(Test-Path $p)) { throw "Instalador nao encontrado: $p" }
           if ((Get-Item $p).Length -lt 1000000) { throw "Instalador muito pequeno" }
           $sha = (Get-FileHash $p -Algorithm SHA256).Hash.ToLowerInvariant()
-          "SHA256: $sha" | Out-File -FilePath dist/SHA256-COSMO-0.1.8.txt -Encoding utf8
+          "SHA256: $sha" | Out-File -FilePath dist/SHA256-COSMO-0.1.10.txt -Encoding utf8
           Get-Item $p | Select-Object Name,Length
       - uses: actions/upload-artifact@v4
         with:
-          name: COSMO-0.1.8-Windows-x64-TESTE
+          name: COSMO-0.1.10-Windows-x64-TESTE
           path: |
-            dist/ENZO-0.1.8-Windows-x64.exe
-            dist/SHA256-COSMO-0.1.8.txt
+            dist/ENZO-0.1.10-Windows-x64.exe
+            dist/SHA256-COSMO-0.1.10.txt
           if-no-files-found: error
           retention-days: 14
+
+
