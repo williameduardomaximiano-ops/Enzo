@@ -1,0 +1,49 @@
+name: COSMO 0.1.5 - instalador Windows de teste
+on:
+  push:
+    branches: ['feature/cosmo-rename']
+    paths:
+      - '.github/workflows/build-cosmo-windows.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: voice/requirements-windows.txt
+      - name: Instalar dependencias do aplicativo
+        run: npm ci
+      - name: Validar testes
+        run: npm test
+      - name: Preparar runtime Python e vozes com hashes verificados
+        run: python scripts/prepare-runtime.py
+      - name: Gerar instalador Windows x64
+        run: npm run build:win
+      - name: Validar nome e hash do instalador
+        shell: pwsh
+        run: |
+          $p = 'dist/ENZO-0.1.5-Windows-x64.exe'
+          if (!(Test-Path $p)) { throw "Instalador nao encontrado: $p" }
+          if ((Get-Item $p).Length -lt 1000000) { throw "Instalador muito pequeno" }
+          $sha = (Get-FileHash $p -Algorithm SHA256).Hash.ToLowerInvariant()
+          "SHA256: $sha" | Out-File -FilePath dist/SHA256-COSMO-0.1.5.txt -Encoding utf8
+          Get-Item $p | Select-Object Name,Length
+      - uses: actions/upload-artifact@v4
+        with:
+          name: COSMO-0.1.5-Windows-x64-TESTE
+          path: |
+            dist/ENZO-0.1.5-Windows-x64.exe
+            dist/SHA256-COSMO-0.1.5.txt
+          if-no-files-found: error
+          retention-days: 14
