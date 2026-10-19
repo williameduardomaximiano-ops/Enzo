@@ -213,3 +213,56 @@ article.user label{color:#e6f8ff}
 @media(prefers-reduced-motion:reduce){.core,.core span,.core span::before{animation:none!important}}
 .holo-caption{z-index:3}
 .holo-caption p{display:inline-block;padding:3px 10px;background:#041330cc;border:1px solid #2f7fd055}
+
+/* ===== JARVIS v6: efeitos ===== */
+#fx{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
+.radar{position:absolute;left:50%;top:46%;width:min(70%,400px);aspect-ratio:1;translate:-50% -50%;border-radius:50%;background:conic-gradient(from 0deg,#7fdcff66,transparent 22%);mask:radial-gradient(circle,transparent 30%,#000 31%);animation:hud-spin 4s linear infinite;z-index:1;pointer-events:none}
+.ripple{position:absolute;left:50%;top:46%;translate:-50% -50%;z-index:1;pointer-events:none}
+.ripple i{position:absolute;left:0;top:0;width:120px;height:120px;margin:0;translate:-50% -50%;border-radius:50%;background:none;border:2px solid #9fe3ff;box-shadow:0 0 14px #4cc9ff;animation:hud-ripple 3s ease-out infinite}
+.ripple i:nth-child(2){animation-delay:1s}.ripple i:nth-child(3){animation-delay:2s}
+.core{z-index:2}
+.beam{position:absolute;left:0;right:0;height:2px;top:0;z-index:2;pointer-events:none;background:linear-gradient(90deg,transparent,#bff0ff,#fff,#bff0ff,transparent);box-shadow:0 0 18px #4cc9ff,0 0 40px #4cc9ff88;animation:hud-scan 5s ease-in-out infinite}
+.stream{position:absolute;left:22px;top:330px;z-index:2;margin:0;padding:0;background:none!important;border:0!important;box-shadow:none;font-size:8px;line-height:1.6;color:#7fdcffaa;letter-spacing:1px;pointer-events:none}
+.glitch{position:relative}
+h1.glitch{animation:hud-glitch 6s infinite}
+.presence[data-mode=listening] .core{animation-duration:1s;box-shadow:0 0 90px #4cc9ff,0 0 160px #4cc9ff99}
+.presence[data-mode=listening] .ripple i{animation-duration:1.5s}
+.presence[data-mode=speaking] .core{animation:hud-talk .35s ease-in-out infinite;box-shadow:0 0 110px #bff0ff,0 0 200px #4cc9ffaa}
+.presence[data-mode=speaking] .radar{animation-duration:1.4s}
+.presence[data-mode=speaking] .r5,.presence[data-mode=speaking] .r1{animation-duration:3s}
+button.primary{position:relative;overflow:hidden}
+button.primary::after{content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,#ffffffaa,transparent);animation:hud-shine 3.2s ease-in-out infinite}
+.selected{animation:hud-glow 2.5s ease-in-out infinite}
+article.assistant{position:relative;overflow:hidden}
+article.assistant::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,#4cc9ff22,transparent);translate:-100% 0;animation:hud-sweep 4s ease-in-out infinite}
+#voice-dot{animation:hud-talk 1.4s ease-in-out infinite}
+@keyframes hud-ripple{from{scale:.6;opacity:.9}to{scale:3.4;opacity:0}}
+@keyframes hud-scan{0%,100%{top:4%;opacity:0}10%,90%{opacity:1}50%{top:94%}}
+@keyframes hud-talk{50%{scale:1.12}}
+@keyframes hud-shine{60%,100%{left:130%}}
+@keyframes hud-glow{50%{box-shadow:0 0 18px #4cc9ff66,inset 0 0 12px #4cc9ff33}}
+@keyframes hud-sweep{60%,100%{translate:100% 0}}
+@keyframes hud-glitch{0%,92%,100%{text-shadow:0 0 14px #4fd8ff66;translate:0}93%{text-shadow:-3px 0 #ff3bd4,3px 0 #3bf0ff;translate:2px 0}95%{text-shadow:3px 0 #ff3bd4,-3px 0 #3bf0ff;translate:-2px 0}97%{text-shadow:0 0 14px #4fd8ff66;translate:0}}
+@media(max-width:1000px){.stream{display:none}}
+@media(prefers-reduced-motion:reduce){.radar,.ripple,.beam,button.primary::after,article.assistant::after{display:none}h1.glitch,.selected,.presence[data-mode] .core{animation:none!important}}
+
+/* ===== JARVIS v6.1: movimentos ===== */
+.holo-caption>span{display:block}
+.levels{display:none}
+.stream{top:330px}
+body::after{animation:hud-grid 20s linear infinite}
+.readout.left,.a1,.spark{animation:hud-float 5s ease-in-out infinite}
+.readout.right,.redout,.bars{animation:hud-float 6s ease-in-out infinite reverse}
+.hud,.core,.radar,.ripple{transition:transform .25s ease-out;transform:translate(var(--px,0),var(--py,0))}
+.readout,.bars,.spark,.redout,.stream{transform:translate(calc(var(--px,0) * -1.6),calc(var(--py,0) * -1.6))}
+.chev.l{animation:hud-chev-l 3s ease-in-out infinite}
+.chev.r{animation:hud-chev-r 3s ease-in-out infinite}
+.card,.conversation,.voice-bar{animation:hud-rise .6s ease-out both}
+.conversation{animation-delay:.15s}.voice-bar{animation-delay:.3s}
+nav button{transition:.25s}nav button:hover{translate:6px 0}
+@keyframes hud-grid{to{background-position:48px 48px}}
+@keyframes hud-float{50%{translate:0 -6px}}
+@keyframes hud-chev-l{50%{left:6px;opacity:.6}}
+@keyframes hud-chev-r{50%{right:6px;opacity:.6}}
+@keyframes hud-rise{from{opacity:0;translate:0 14px}}
+@media(prefers-reduced-motion:reduce){body::after,.readout,.a1,.spark,.redout,.bars,.chev,.card,.conversation,.voice-bar{animation:none!important}}
