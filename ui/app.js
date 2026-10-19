@@ -344,17 +344,17 @@ $('#prospecting-form').addEventListener('submit',async e=>{
 // Fonte de imagem configurável; preserva o arquivo JPEG original escolhido pelo usuário.
 async function loadGoldHologram(){
  const uri=await invoke('hologramGet');
- if(!uri){$('#gold-setup').hidden=false;$('#hologram-import-status').textContent='A imagem preta e dourada ainda não foi selecionada neste computador. Clique no botão acima para substituir o visual antigo.';return;}
+ if(!uri){document.body.dataset.goldPhoto='missing';$('#gold-setup').hidden=false;$('#hologram-import-status').textContent='A imagem preta e dourada ainda não foi selecionada neste computador. Clique no botão acima para substituir o visual antigo.';return;}
  if(!holo){$('#hologram-import-status').textContent='WebGL indisponível; mantenha o controle por texto.';return;}
  await holo.setImage(uri);
- $('#gold-setup').hidden=true;
+ document.body.dataset.goldPhoto='loaded';$('#gold-setup').hidden=true;
  $('#hologram-import-status').textContent='Imagem original preta e dourada carregada. O cérebro responde ao estado do microfone e da fala; a boca acompanha a amplitude do áudio (ainda não é sincronização por fonemas).';
 }
 $('#gold-import-home').onclick=()=>$('#hologram-import').click();
 $('#hologram-import').onclick=async()=>{
  try{
   const result=await invoke('hologramImport');
-  if(result.selected&&holo){await holo.setImage(result.image);$('#gold-setup').hidden=true;$('#hologram-import-status').textContent='Imagem original carregada e guardada localmente. Movimentos suaves e intensidade cerebral ativados.';}
+  if(result.selected&&holo){await holo.setImage(result.image);document.body.dataset.goldPhoto='loaded';$('#gold-setup').hidden=true;$('#hologram-import-status').textContent='Imagem original carregada e guardada localmente. Movimentos suaves e intensidade cerebral ativados.';}
  }catch(err){$('#hologram-import-status').textContent='Imagem: '+err.message;}
 };
 loadGoldHologram().catch(e=>notice('Holograma: '+e.message));
