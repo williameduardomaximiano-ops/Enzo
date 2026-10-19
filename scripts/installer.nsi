@@ -27,7 +27,7 @@ FunctionEnd
 Section "COSMO" SEC01
  SetOutPath "$INSTDIR"
  SetOverwrite on
- File /r "${PROJECT_DIR}/dist/win-unpacked/*"
+ File /r "${PROJECT_DIR}\dist\win-unpacked\*"
  ; Limpeza exclusiva de atalhos/arquivos legados durante atualização
  Delete "$DESKTOP\ENZO.lnk"
  Delete "$SMPROGRAMS\ENZO\ENZO.lnk"
