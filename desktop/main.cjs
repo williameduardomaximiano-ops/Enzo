@@ -162,6 +162,26 @@ const single=app.requestSingleInstanceLock();if(!single)app.quit();else app.when
    if(typeof url!=='string'||!/^https:\/\/[a-z0-9-]+\.vercel\.app\/?$/i.test(url))throw Error('Preview Vercel ainda não foi publicada.');
    await shell.openExternal(url);return true;
  });
+ ipc('hologram-get',()=>{
+   const file=path.join(dataDir,'cosmo-hologram.jpg');
+   if(!fs.existsSync(file))return null;
+   const data=fs.readFileSync(file);
+   if(data.length>3*1024*1024)throw Error('Imagem excede limite de segurança.');
+   return 'data:image/jpeg;base64,'+data.toString('base64');
+ });
+ ipc('hologram-import',async()=>{
+   if(gate.paused)throw Error('COSMO pausado.');
+   const selection=await dialog.showOpenDialog(win,{title:'Selecionar a imagem original do holograma COSMO',properties:['openFile'],filters:[{name:'JPEG',extensions:['jpg','jpeg']}]});
+   if(selection.canceled||selection.filePaths.length!==1)return {selected:false};
+   const source=selection.filePaths[0],stat=fs.lstatSync(source);
+   if(!stat.isFile()||stat.isSymbolicLink()||stat.size>3*1024*1024||stat.size<500)throw Error('Escolha um JPEG válido com menos de 3 MB.');
+   const bytes=fs.readFileSync(source);
+   if(bytes[0]!==0xff||bytes[1]!==0xd8||bytes[bytes.length-2]!==0xff||bytes[bytes.length-1]!==0xd9)throw Error('Arquivo não parece ser um JPEG válido.');
+   const dest=path.join(dataDir,'cosmo-hologram.jpg'),tmp=dest+'.tmp';
+   fs.writeFileSync(tmp,bytes,{mode:0o600});fs.renameSync(tmp,dest);
+   audit('hologram-updated',{bytes:bytes.length});
+   return {selected:true,image:'data:image/jpeg;base64,'+bytes.toString('base64')};
+ });
  ipc('memory-status',()=>({available:!!memories,readError:memories?.readError||null,count:memories?.list().length||0}));
  ipc('memory-list',()=>{if(!memories)throw Error('Criptografia Windows indisponível.');return memories.list();});
  ipc('memory-add',note=>{if(gate.paused)throw Error('COSMO pausado.');if(!memories)throw Error('Criptografia Windows indisponível.');const result=memories.add(note);audit('memory-added',{id:result.id});return result;});
