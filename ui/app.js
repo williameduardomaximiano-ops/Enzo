@@ -193,7 +193,19 @@ async function refreshMissions(){
   };
   const folder=document.createElement('button');folder.type='button';folder.textContent='Abrir pasta';folder.onclick=()=>invoke('missionsOpen',m.id).catch(e=>notice('Pasta: '+e.message));
   const preview=document.createElement('button');preview.type='button';preview.textContent='Ver prévia HTML';preview.onclick=()=>invoke('missionsPreview',m.id).catch(e=>notice('Prévia: '+e.message));
-  row.append(run,folder,preview);
+  const publish=document.createElement('button');publish.type='button';publish.textContent='Publicar prévia Vercel';
+  publish.disabled=!['revisao','previa'].includes(m.status);
+  publish.onclick=async()=>{
+   publish.disabled=true;$('#mission-log').textContent='Solicitando autorização para publicar na Vercel...';
+   try{const result=await invoke('missionsPublish',m.id);notice(result.previewUrl?'Prévia publicada e aberta no navegador.':result.reason||'Nenhum deploy realizado.');await refreshMissions();}
+   catch(err){notice('Vercel: '+err.message);await refreshMissions().catch(()=>{});}
+  };
+  row.append(run,folder,preview,publish);
+  if(m.previewUrl){
+   const live=document.createElement('button');live.type='button';live.textContent='Ver site hospedado';
+   live.onclick=()=>invoke('missionsOpenLive',m.id).catch(e=>notice('Preview: '+e.message));
+   row.appendChild(live);
+  }
   card.append(heading,goal,date,row);
   if(m.lastError){const error=document.createElement('p');error.className='muted';error.textContent='Último erro: '+m.lastError;card.append(error);}
   list.appendChild(card);
