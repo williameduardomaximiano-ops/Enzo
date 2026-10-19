@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { IMAGE_URI } from './hologram-image.js';
 
-// ENZO — holograma visual aprovado em 13/10/2026.
+// COSMO — holograma visual aprovado em 13/10/2026.
 // A imagem fornecida pelo usuário é a fonte visual fiel (linhas, olhos,
 // estrelas e onda azul); o shader anima as regiões faciais sem redesenhar o rosto.
 // Este modo é 2.5D: preserva o visual original, mas NÃO é um modelo 3D rigado.

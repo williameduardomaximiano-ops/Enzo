@@ -1,7 +1,8 @@
 'use strict';
+const {stripInvocation}=require('./assistant-identity.cjs');
 // Aparências do mesmo holograma autorizado: não são modelos 3D rigados adicionais.
 const AVATARS=Object.freeze([
-{id:'original',name:'ENZO Original',color:'#55d6ef',filter:'none',description:'Imagem holográfica original preservada'},
+{id:'original',name:'COSMO Original',color:'#55d6ef',filter:'none',description:'Imagem holográfica original preservada'},
 {id:'humanoid-blue',name:'Humanoide Azul',color:'#408fff',filter:'hue-rotate(9deg) saturate(1.3)',description:'Luz azul cibernética'},
 {id:'sentinel-cyan',name:'Sentinela Ciano',color:'#48f4df',filter:'hue-rotate(-24deg) saturate(1.35)',description:'Holograma ciano vibrante'},
 {id:'phantom-violet',name:'Fantasma Violeta',color:'#a883ff',filter:'hue-rotate(65deg) saturate(1.4)',description:'Holograma de energia violeta'},
@@ -12,7 +13,7 @@ function byId(id){return AVATARS.find(a=>a.id===id)||null;}
 function validateAvatar(id){if(typeof id!=='string'||!byId(id))throw Error('Modelo de aparência desconhecido');return id;}
 function avatarIntent(text){
  if(typeof text!=='string')return null;
- const t=text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.!?]/g,'').replace(/^\s*enzo[, ]*/,'').trim();
+ const t=stripInvocation(text).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.!?]/g,'').trim();
  const m=t.match(/^(?:mude|muda|troque|troca|coloque|coloca|bota|use|usa|escolha|selecion(?:e|a)|alter(?:e|a)) (?:o |a )?(?:visual|holograma|avatar|modelo|aparencia)(?: (?:para|pro|pra))? (original|humanoide azul|sentinela ciano|fantasma violeta|titanio prata|fusao ambar)$/);
  const ids={'original':'original','humanoide azul':'humanoid-blue','sentinela ciano':'sentinel-cyan','fantasma violeta':'phantom-violet','titanio prata':'titan-silver','fusao ambar':'fusion-amber'};
  return m?{type:'avatar_select',avatar:ids[m[1]]}:null;
