@@ -12,6 +12,7 @@
     "build:win": "npm run bundle && electron-builder --win dir --x64 && node scripts/uninstall-list.cjs && electron-builder --win nsis --x64 --prepackaged dist/win-unpacked"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
     "three": "0.180.0"
   },
   "devDependencies": {

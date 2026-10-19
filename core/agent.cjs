@@ -17,11 +17,13 @@ function findBin(name,env,platform){for(const c of candidates(name,env,platform)
 
 // Para .cmd no Windows o texto vai pelo stdin (Claude) ou higienizado (OpenCode), nunca interpretado pelo cmd.exe.
 function sanitizeForCmd(text){return String(text).replace(/[\r\n]+/g,' ').replace(/["^&|<>%!`]/g,' ').replace(/\s+/g,' ').trim();}
-function buildCommand(agent,task,{bin,full=false}={}){
+// Modelo usado pelo Claude Code nos projetos.
+const AGENT_MODEL='claude-sonnet-5-5';
+function buildCommand(agent,task,{bin,full=false,model=AGENT_MODEL}={}){
  if(!AGENTS[agent])throw Error('Agente desconhecido.');
  const isCmd=/\.cmd$/i.test(bin||'');
  if(agent==='claude'){
-  const args=['-p','--output-format','stream-json','--verbose','--append-system-prompt',APPEND];
+  const args=['-p','--output-format','stream-json','--verbose','--model',model,'--append-system-prompt',APPEND];
   if(full)args.push('--permission-mode','bypassPermissions');else args.push('--permission-mode','acceptEdits','--allowedTools',...DEV_TOOLS);
   if(isCmd)return {bin,args:args.map(a=>/[\s"(]/.test(a)?`"${a.replace(/"/g,'')}"`:a),stdin:task,shell:true};
   return {bin,args,stdin:task,shell:false};
@@ -45,11 +47,11 @@ class AgentRunner{
  constructor({resolveBin=findBin,spawnImpl=spawn,timeoutMs=30*60000}={}){this.resolveBin=resolveBin;this.spawnImpl=spawnImpl;this.timeoutMs=timeoutMs;this.proc=null;}
  get busy(){return !!this.proc;}
  available(){return Object.fromEntries(Object.keys(AGENTS).map(a=>[a,!!this.resolveBin(a)]));}
- run({agent='claude',task,cwd,full=false,onProgress=()=>{}}){
+ run({agent='claude',task,cwd,full=false,model,onProgress=()=>{}}){
   if(this.proc)return Promise.reject(Error('O agente já está trabalhando em outra tarefa.'));
   if(typeof task!=='string'||!task.trim()||task.length>8000)return Promise.reject(Error('Tarefa inválida.'));
   const bin=this.resolveBin(agent);if(!bin)return Promise.reject(Error(`${AGENTS[agent]||agent} não encontrado no PC. Instale e faça login nele, ou escolha outro agente em Configuração.`));
-  const cmd=buildCommand(agent,task.trim(),{bin,full});
+  const cmd=buildCommand(agent,task.trim(),{bin,full,...(model?{model}:{})});
   return new Promise((resolve,reject)=>{
    const p=this.spawnImpl(cmd.bin,cmd.args,{cwd,shell:cmd.shell,windowsHide:true,stdio:['pipe','pipe','pipe'],env:{...process.env,FORCE_COLOR:'0',NO_COLOR:'1'}});this.proc=p;
    let buf='',raw='',err='',result=null,failed=false;const timer=setTimeout(()=>{failed=true;p.kill();},this.timeoutMs);
@@ -69,4 +71,4 @@ class AgentRunner{
 function slug(text){return String(text).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40)||'projeto';}
 function sitePrompt(topic){return `Crie um site completo, moderno e bonito sobre: ${topic}. Use HTML, CSS e JavaScript puros nesta pasta, com index.html como página inicial, layout responsivo e textos em português do Brasil. Não dependa de servidor nem de instalação de pacotes. Ao terminar, diga em até 2 frases o que foi criado.`;}
 
-module.exports={AgentRunner,AGENTS,DEV_TOOLS,buildCommand,parseClaudeLine,describeTool,findBin,candidates,sanitizeForCmd,spoken,slug,sitePrompt};
+module.exports={AGENT_MODEL,AgentRunner,AGENTS,DEV_TOOLS,buildCommand,parseClaudeLine,describeTool,findBin,candidates,sanitizeForCmd,spoken,slug,sitePrompt};

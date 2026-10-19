@@ -1,8 +1,8 @@
 const {app,BrowserWindow,ipcMain,dialog,shell,globalShortcut,session,Tray,Menu,nativeImage,safeStorage,Notification,clipboard}=require('electron');
 const path=require('node:path'),fs=require('node:fs'),os=require('node:os');const {spawn}=require('node:child_process');
-const {Gate,APPS,cleanText}=require('../core/policy.cjs');const {intent}=require('../core/intent.cjs');const {WorkMode}=require('../core/workmode.cjs');const {ModeStore,VoiceModes,parseTargets,normalizeName,LABELS}=require('../core/modes.cjs');const llm=require('../core/llm.cjs');const {Voice}=require('../core/voice.cjs');const {GitHubPrivateUpdater}=require('../updater/github-private.cjs');const {OWNER,REPO,PUBLIC_KEY_PEM}=require('../core/update-channel.cjs');const {Companion}=require('../core/android.cjs');const vaultLib=require('../core/vault.cjs');const {SecureStore,Memory,Reminders,jarvisIntent,sysinfo,statusReport,greeting,weather,describeDelay,formatAt,MEDIA}=require('../core/jarvis.cjs');const {skillIntent}=require('../core/skills.cjs');const {stripName}=require('../core/wake.cjs');const web=require('../core/web.cjs');const optimize=require('../core/optimize.cjs');const {AgentRunner,AGENTS,slug,sitePrompt,spoken}=require('../core/agent.cjs');
+const {Gate,APPS,cleanText}=require('../core/policy.cjs');const {intent}=require('../core/intent.cjs');const {WorkMode}=require('../core/workmode.cjs');const {ModeStore,VoiceModes,parseTargets,normalizeName,LABELS}=require('../core/modes.cjs');const llm=require('../core/llm.cjs');const {Voice}=require('../core/voice.cjs');const {GitHubPrivateUpdater}=require('../updater/github-private.cjs');const {OWNER,REPO,PUBLIC_KEY_PEM}=require('../core/update-channel.cjs');const {Companion}=require('../core/android.cjs');const vaultLib=require('../core/vault.cjs');const {SecureStore,Memory,Reminders,jarvisIntent,sysinfo,statusReport,greeting,weather,describeDelay,formatAt,MEDIA}=require('../core/jarvis.cjs');const {skillIntent}=require('../core/skills.cjs');const {stripName}=require('../core/wake.cjs');const web=require('../core/web.cjs');const optimize=require('../core/optimize.cjs');const {AgentRunner,AGENTS,AGENT_MODEL,slug,sitePrompt,spoken}=require('../core/agent.cjs');const {runBrain,BRAIN_SYSTEM}=require('../core/brain.cjs');const {makeTools}=require('../core/tools.cjs');const {Files,summarizePlan,human}=require('../core/files.cjs');const {safeUrl}=require('../core/policy.cjs');
 let agentRunner=new AgentRunner(),memory,reminders,win,tray,voice,updater,companion,workMode,modeStore,voiceModes,root,python,dataDir,settings,controller,busy=false,epoch=0,updateTimer,controlProcess;const gate=new Gate();const history=[];let state='idle';
-const defaults={remember:false,continuous:false,compact:false,provider:'auto',groqModel:'openai/gpt-oss-120b',geminiModel:'gemini-3.5-flash',autoUpdate:true,micDevice:'',micSensitivity:'normal',micNoise:true,micEcho:true,micGain:true,wake:false,greet:true,city:'',agent:'claude',agentFull:false,quickOpen:true,projectsDir:'',lastProject:''};
+const defaults={remember:false,continuous:false,compact:false,provider:'auto',groqModel:'openai/gpt-oss-120b',geminiModel:'gemini-3.5-flash',autoUpdate:true,micDevice:'',micSensitivity:'normal',micNoise:true,micEcho:true,micGain:true,wake:false,greet:true,city:'',agent:'claude',agentFull:false,quickOpen:true,projectsDir:'',lastProject:'',claudeModel:'claude-haiku-5-5',agentModel:AGENT_MODEL,brain:true,folders:[]};
 let apiKeys=vaultLib.emptyVault();
 function emit(type,data={}){win?.webContents.send('event',{type,...data});}
 function setState(s){state=s;emit('state',{state:s});}
@@ -35,12 +35,59 @@ async function openSite(url,source){if(settings.quickOpen!==false&&source==='des
 function startAgent({agent=settings.agent,task,dir,site=false}){
  if(agentRunner.busy)throw Error(`O ${AGENTS[agent]} ainda está trabalhando na tarefa anterior, senhor.`);
  fs.mkdirSync(dir,{recursive:true});settings.lastProject=dir;saveSettings();const name=AGENTS[agent]||agent;audit('agent-start',{agent,dir});emit('agent',{status:'start',agent:name,task,dir});
- agentRunner.run({agent,task,cwd:dir,full:!!settings.agentFull,onProgress:text=>emit('agent',{status:'progress',text})}).then(async out=>{
+ agentRunner.run({agent,task,cwd:dir,full:!!settings.agentFull,model:settings.agentModel||AGENT_MODEL,onProgress:text=>emit('agent',{status:'progress',text})}).then(async out=>{
   let opened='';const index=path.join(dir,'index.html');if(site&&fs.existsSync(index)){const err=await shell.openPath(index);if(!err)opened=' Já abri no navegador.';}
   audit('agent-done',{agent});emit('agent',{status:'done',text:out.text});emit('proactive',{text:`Pronto, senhor. ${spoken(out.text)}${opened}`,kind:'agent'});win?.flashFrame(true);
  }).catch(e=>{audit('agent-failed',{agent});emit('agent',{status:'error',text:e.message});emit('proactive',{text:`Senhor, o ${name} não conseguiu concluir: ${spoken(e.message,200)}`,kind:'agent'});});
  return `Certo, senhor. O ${name} começou a trabalhar em ${path.basename(dir)}. Eu aviso quando terminar.`;}
 async function confirmAgent(agent,task,dir){const r=await dialog.showMessageBox(win,{type:'question',title:'COSMO • Agente',message:`Deixar o ${AGENTS[agent]} trabalhar nesta tarefa?`,detail:`${task}\n\nPasta: ${dir}\n${settings.agentFull?'Modo liberado: o agente pode rodar qualquer comando.':'Ele pode criar e editar arquivos nessa pasta e rodar comandos de desenvolvimento (npm, node, git, python).'}`,buttons:['Cancelar','Começar'],defaultId:1,cancelId:0,noLink:true});return r.response===1;}
+// ===== Cérebro com ferramentas =====
+function fileRoots(){const roots=['documents','downloads','desktop','pictures','music','videos'].map(k=>{try{return app.getPath(k)}catch{return null}});return [...roots,projectsDir(),...(Array.isArray(settings.folders)?settings.folders:[])].filter(Boolean);}
+function files(){return new Files({roots:fileRoots(),undoFile:path.join(dataDir,'organize-undo.json')});}
+function atTime(hhmm){const m=String(hhmm||'').match(/(\d{1,2})\s*[:h]\s*(\d{2})?/);if(!m)throw Error('Horário inválido.');const d=new Date();d.setHours(+m[1],+(m[2]||0),0,0);if(d<=Date.now())d.setDate(d.getDate()+1);return d.getTime();}
+// Ferramentas que ainda dependem de módulos em construção ficam fora da lista do cérebro.
+const BRAIN_PENDING=new Set(['screen_look','screen_click','screen_type','press_keys','calendar_events','email_unread','whatsapp_message','daily_briefing']);
+function brainContext(source,token){const signal=controller.signal;const desk=what=>{if(source!=='desktop')throw Error(`${what} só pode ser feito no computador.`);};
+ return {
+  search:async q=>(await web.search(q,{signal})).map((r,i)=>`[${i+1}] ${r.title} — ${r.url}`).join('\n')||'Nenhum resultado.',
+  research:async q=>{const r=await web.research(q,{signal});return (r.pages.length?r.pages:r.results).map((p,i)=>`[${i+1}] ${p.title} — ${p.url}\n${(p.text||'').slice(0,2500)}`).join('\n\n');},
+  readPage:async url=>{const p=await web.readPage(url,{signal,max:8000});return `${p.title}\n${p.text}`;},
+  weather:c=>weather(c||settings.city,fetch,signal),
+  systemStatus:()=>statusReport(sysinfo(),{reminders:reminders.list().length}),
+  youtube:async(q,only)=>{const url=only?'https://www.youtube.com/results?search_query='+encodeURIComponent(q):await web.youtubeUrl(q,{signal});await openSite(url,source);return 'Aberto: '+url;},
+  openUrl:async url=>{const u=safeUrl(url);await openSite(u,source);return 'Aberto: '+u;},
+  askAi:async(ai,q)=>{if(ai==='gemini'){clipboard.writeText(q);await openSite(web.SITES.gemini(),source);return 'Gemini aberto; pergunta copiada para colar.';}await openSite(web.SITES[ai](q),source);return `Enviado ao ${ai}.`;},
+  media:async k=>{if(source!=='desktop')return authorize({type:'media',key:k});await runMedia(k);return MEDIA_SAY[k];},
+  openApp:app=>authorize({type:'open_app',app}),
+  memorySave:f=>memory.add(f)?'Guardado na memória.':'Guardado só nesta sessão (criptografia indisponível).',
+  memoryList:()=>memory.list().join('\n')||'Nada guardado ainda.',
+  reminderAdd:a=>{const at=Number(a.minutes_from_now)>0?Date.now()+Number(a.minutes_from_now)*60000:atTime(a.time);reminders.add(String(a.text||'lembrete').slice(0,300),at);emit('hud',{});return `Lembrete criado para ${formatAt(at)}.`;},
+  reminderList:()=>reminders.list().map(r=>`${formatAt(r.at)} — ${r.text}`).join('\n')||'Nenhum lembrete.',
+  codingAgent:async a=>{desk('Acionar o agente');let dir;
+   if(a.project){dir=path.join(projectsDir(),slug(a.project));if(!fs.existsSync(dir))throw Error(`Projeto ${a.project} não existe.`);}
+   else if(a.new_project_name||a.is_website||!settings.lastProject||!fs.existsSync(settings.lastProject))dir=freshDir(slug(a.new_project_name||a.task.slice(0,40)));else dir=settings.lastProject;
+   const task=a.is_website?`${a.task}\n\nUse HTML, CSS e JavaScript puros com index.html na raiz desta pasta, responsivo e em português do Brasil, sem servidor nem instalação de pacotes.`:a.task;
+   if(!await confirmAgent(settings.agent,task,dir))return 'William recusou a tarefa.';return startAgent({task,dir,site:!!a.is_website});},
+  filesSearch:a=>files().search({query:a.query||'',extension:a.extension||'',days:Number(a.days)||0}).map(h=>`${h.path} (${human(h.size)}, ${new Date(h.modified).toLocaleDateString('pt-BR')})`).join('\n')||'Nenhum arquivo encontrado.',
+  folderList:p=>{const f=files();const dir=f.resolveLoose(p);return dir+'\n'+f.list(dir).map(e=>`${e.dir?'[pasta] ':''}${e.name}${e.dir?'':` (${human(e.size)})`}`).join('\n');},
+  fileRead:p=>files().read(p),
+  fileOpen:async p=>{const f=files().canOpen(p);const err=await shell.openPath(f);if(err)throw Error(err);return 'Aberto.';},
+  folderOrganize:async p=>{desk('Organizar pastas');const f=files();const plan=f.plan(p);if(!plan.moves.length)return 'Não há arquivos soltos para organizar.';const summary=summarizePlan(plan);
+   const r=await dialog.showMessageBox(win,{type:'question',title:'COSMO • Organizar',message:'Organizar esta pasta por tipo de arquivo?',detail:summary+'\n\nNada é apagado; os arquivos só mudam para subpastas. Dá para desfazer.',buttons:['Cancelar','Organizar'],defaultId:1,cancelId:0,noLink:true});
+   if(r.response!==1)return 'William cancelou.';const done=f.apply(plan);audit('organize',{count:done.length});return `${done.length} arquivos organizados. ${summary}`;},
+  folderUndo:()=>`${files().undo()} arquivos voltaram ao lugar original.`,
+  optimize:()=>handleSkill({type:'optimize'},source,token),
+  github:repo=>require('../core/integrations.cjs').githubOverview({token:apiKeys.github,repo,signal}),
+ };}
+function hasAi(){return !!(apiKeys.groq||apiKeys.gemini||apiKeys.anthropic);}
+async function think(text,source,token){
+ const tools=makeTools(brainContext(source,token)).filter(t=>!BRAIN_PENDING.has(t.name));
+ const system=[BRAIN_SYSTEM,`Data e hora local: ${new Date().toLocaleString('pt-BR',{dateStyle:'full',timeStyle:'short'})}.`,settings.city?`Cidade de William: ${settings.city}.`:'',memory.context()].filter(Boolean).join('\n\n');
+ emit('steps',{status:'start'});
+ try{const out=await runBrain({text,history,tools,llmCall:(t,specs)=>llm.chatTools(t,specs,settings,apiKeys,controller.signal,system),onStep:s=>{audit('brain-tool',{tool:s.name});emit('steps',{status:'step',label:s.label});},shouldContinue:()=>epoch===token&&!gate.paused});
+  return {say:out.say};}
+ finally{emit('steps',{status:'end'});}
+}
 async function handleSkill(k,source,token){
  const agentOnly=()=>{if(source!=='desktop')throw Error('Tarefas do agente só podem começar no computador.');};
  if(k.type==='agent_site'||k.type==='agent_new'||k.type==='agent_task'){agentOnly();const agent=k.agent||settings.agent;let dir,task,site=false;
@@ -136,6 +183,7 @@ async function handleChat(value,source='desktop'){
   result={say};
  }
  else if(i.type==='action')result={say:await authorize(i.action)};
+ else if(settings.brain!==false&&hasAi())result=await think(text,source,token);
  else{result=await llm.chatAuto([...history,{role:'user',content:text}],{...settings,memory:memory.context(),now:new Date().toLocaleString('pt-BR',{dateStyle:'full',timeStyle:'short'})},apiKeys,controller.signal);if(epoch!==token)throw Error('Pedido cancelado.');if(result.action)result={say:await authorize(result.action)};}
  if(epoch!==token)throw Error('Pedido cancelado.');history.push({role:'user',content:text},{role:'assistant',content:result.text||result.say});if(history.length>24)history.splice(0,history.length-24);if(settings.remember)fs.writeFileSync(path.join(dataDir,'history.json'),JSON.stringify(history));audit('request-completed',{source});if(source==='android')emit('remote',{text,reply:result.text||result.say});return result;
  }catch(e){audit('request-failed',{source});throw e;}finally{if(token===epoch){busy=false;setState(gate.paused?'paused':'idle');}}
@@ -166,7 +214,7 @@ const single=app.requestSingleInstanceLock();if(!single)app.quit();else app.when
  ipc('transcribe',async audio=>{if(gate.paused)throw Error('Microfone pausado.');if(typeof audio!=='string'||audio.length>3000000)throw Error('Áudio inválido.');return voice.call('transcribe',{audio})});
  ipc('speak',async text=>{if(gate.paused)throw Error('Voz pausada.');return voice.call('speak',{text:cleanText(text,6000)})});
  ipc('stop',()=>{stop();return true});ipc('resume',()=>{gate.resume();setState('idle');return true});
- ipc('configure',cfg=>{if(!cfg||typeof cfg!=='object')throw Error('Configuração inválida.');if(typeof cfg.provider==='string')settings.provider=vaultLib.validateOrder(cfg.provider);for(const k of ['groqModel','geminiModel'])if(typeof cfg[k]==='string'&&/^[-\w.:/]{1,100}$/.test(cfg[k]))settings[k]=cfg[k];if(typeof cfg.micDevice==='string'&&cfg.micDevice.length<=500)settings.micDevice=cfg.micDevice;if(typeof cfg.micSensitivity==='string'&&['alta','normal','baixa'].includes(cfg.micSensitivity))settings.micSensitivity=cfg.micSensitivity;if(typeof cfg.city==='string'&&cfg.city.length<=80)settings.city=cfg.city.trim();if(typeof cfg.agent==='string'&&AGENTS[cfg.agent])settings.agent=cfg.agent;for(const k of ['remember','continuous','autoUpdate','micNoise','micEcho','micGain','wake','greet','agentFull','quickOpen'])if(typeof cfg[k]==='boolean')settings[k]=cfg[k];if(!settings.remember)fs.rmSync(path.join(dataDir,'history.json'),{force:true});saveSettings();return settings});
+ ipc('configure',cfg=>{if(!cfg||typeof cfg!=='object')throw Error('Configuração inválida.');if(typeof cfg.provider==='string')settings.provider=vaultLib.validateOrder(cfg.provider);for(const k of ['groqModel','geminiModel'])if(typeof cfg[k]==='string'&&/^[-\w.:/]{1,100}$/.test(cfg[k]))settings[k]=cfg[k];if(typeof cfg.micDevice==='string'&&cfg.micDevice.length<=500)settings.micDevice=cfg.micDevice;if(typeof cfg.micSensitivity==='string'&&['alta','normal','baixa'].includes(cfg.micSensitivity))settings.micSensitivity=cfg.micSensitivity;if(typeof cfg.city==='string'&&cfg.city.length<=80)settings.city=cfg.city.trim();if(typeof cfg.agent==='string'&&AGENTS[cfg.agent])settings.agent=cfg.agent;for(const k of ['claudeModel','agentModel'])if(typeof cfg[k]==='string'&&/^[-\w.:]{1,100}$/.test(cfg[k]))settings[k]=cfg[k];for(const k of ['remember','continuous','autoUpdate','micNoise','micEcho','micGain','wake','greet','agentFull','quickOpen','brain'])if(typeof cfg[k]==='boolean')settings[k]=cfg[k];if(!settings.remember)fs.rmSync(path.join(dataDir,'history.json'),{force:true});saveSettings();return settings});
  ipc('vault-set',cfg=>{if(!cfg||typeof cfg!=='object')throw Error('Dados inválidos.');const p=vaultLib.validateProvider(cfg.provider);if(typeof cfg.key==='string'&&cfg.key.trim()===''){apiKeys[p]='';persistVault();audit('vault-cleared',{provider:p});return vaultLib.statusOf(apiKeys);}apiKeys[p]=vaultLib.validateKey(cfg.key);persistVault();audit('vault-updated',{provider:p});return vaultLib.statusOf(apiKeys)});
  ipc('vault-status',()=>({configured:vaultLib.statusOf(apiKeys),encryption:safeStorage.isEncryptionAvailable()}));
  ipc('vault-clear',provider=>{const p=vaultLib.validateProvider(provider);apiKeys[p]='';persistVault();audit('vault-cleared',{provider:p});return vaultLib.statusOf(apiKeys)});

@@ -428,7 +428,7 @@
     $("#heading").textContent = { home: "Intelig\xEAncia com presen\xE7a.", settings: "Voc\xEA no controle.", android: "Uma presen\xE7a, dois dispositivos.", updates: "Sempre evoluindo." }[b.dataset.tab];
   });
   async function save() {
-    settings = await invoke("configure", { agent: $("#agent").value, agentFull: $("#agent-full").checked, quickOpen: $("#quick-open").checked, wake: $("#wake").checked, greet: $("#greet").checked, city: $("#city").value.trim(), provider: $("#provider").value, groqModel: $("#groq-model").value.trim(), geminiModel: $("#gemini-model").value.trim(), autoUpdate: $("#auto-update").checked, micDevice: $("#device").value, micSensitivity: $("#mic-sensitivity").value, micNoise: $("#mic-noise").checked, micEcho: $("#mic-echo").checked, micGain: $("#mic-gain").checked, continuous: $("#continuous").checked, remember: $("#remember").checked });
+    settings = await invoke("configure", { claudeModel: $("#claude-model").value.trim(), agentModel: $("#agent-model").value.trim(), brain: $("#brain").checked, agent: $("#agent").value, agentFull: $("#agent-full").checked, quickOpen: $("#quick-open").checked, wake: $("#wake").checked, greet: $("#greet").checked, city: $("#city").value.trim(), provider: $("#provider").value, groqModel: $("#groq-model").value.trim(), geminiModel: $("#gemini-model").value.trim(), autoUpdate: $("#auto-update").checked, micDevice: $("#device").value, micSensitivity: $("#mic-sensitivity").value, micNoise: $("#mic-noise").checked, micEcho: $("#mic-echo").checked, micGain: $("#mic-gain").checked, continuous: $("#continuous").checked, remember: $("#remember").checked });
     notice("Configura\xE7\xE3o salva.");
   }
   $("#save-settings").onclick = () => save().catch((e) => notice(e.message));
@@ -486,6 +486,7 @@ V\xE1lido at\xE9 ${new Date(r.expires).toLocaleTimeString()}` : "Conex\xE3o desa
     if (e.type === "compact") document.body.classList.toggle("compact", e.enabled);
     if (e.type === "proactive") proactive(e.text);
     if (e.type === "agent") agentEvent(e);
+    if (e.type === "steps") stepsEvent(e);
     if (e.type === "hud") window.dispatchEvent(new Event("enzo-hud"));
     if (e.type === "remote") {
       message("[Android] " + e.text, "user");
@@ -515,7 +516,7 @@ ${e.update.notes}`;
     $("#version").textContent = s.version;
     $("#hardware").textContent = `Detectado: ${s.ramGB} GB de RAM \xB7 ${s.cpus} processadores l\xF3gicos`;
     const p = s.providers || {};
-    $("#vault-status").textContent = `Cofre: Groq ${p.groq ? "\u2713" : "\u2014"} \xB7 Gemini ${p.gemini ? "\u2713" : "\u2014"} \xB7 GitHub ${p.github ? "\u2713" : "\u2014"}${s.encryption ? "" : " \xB7 criptografia indispon\xEDvel"}`;
+    $("#vault-status").textContent = `Cofre: Groq ${p.groq ? "\u2713" : "\u2014"} \xB7 Gemini ${p.gemini ? "\u2713" : "\u2014"} \xB7 Claude ${p.anthropic ? "\u2713" : "\u2014"} \xB7 GitHub ${p.github ? "\u2713" : "\u2014"}${s.encryption ? "" : " \xB7 criptografia indispon\xEDvel"}`;
   }).catch((e) => notice(e.message));
   $("#get-vc").onclick = () => invoke("dependency", "vc").catch((e) => notice(e.message));
   $("#diagnostics").onclick = async () => {
@@ -528,11 +529,11 @@ ${e.update.notes}`;
     }
   };
   function vaultText(st) {
-    return `Cofre: Groq ${st.groq ? "\u2713" : "\u2014"} \xB7 Gemini ${st.gemini ? "\u2713" : "\u2014"} \xB7 GitHub ${st.github ? "\u2713" : "\u2014"}`;
+    return `Cofre: Groq ${st.groq ? "\u2713" : "\u2014"} \xB7 Gemini ${st.gemini ? "\u2713" : "\u2014"} \xB7 Claude ${st.anthropic ? "\u2713" : "\u2014"} \xB7 GitHub ${st.github ? "\u2713" : "\u2014"}`;
   }
   $("#save-vault").onclick = async () => {
     try {
-      const ids = { groq: "#groq-key", gemini: "#gemini-key", github: "#github-key" };
+      const ids = { groq: "#groq-key", gemini: "#gemini-key", github: "#github-key", anthropic: "#anthropic-key" };
       let st = null;
       for (const k of Object.keys(ids)) {
         const v = $(ids[k]).value.trim();
@@ -557,7 +558,7 @@ ${e.update.notes}`;
   };
   $("#clear-vault").onclick = async () => {
     try {
-      for (const k of ["groq", "gemini", "github"]) await invoke("vaultClear", k);
+      for (const k of ["groq", "gemini", "github", "anthropic"]) await invoke("vaultClear", k);
       $("#vault-status").textContent = "Cofre vazio.";
       notice("Chaves apagadas.");
     } catch (e) {
@@ -808,6 +809,41 @@ ${e.update.notes}`;
   invoke("status").then((s) => {
     $("#agent-full").checked = !!s.settings.agentFull;
     $("#quick-open").checked = s.settings.quickOpen !== false;
+  }).catch(() => {
+  });
+  var stepsCard = null;
+  function stepsEvent(e) {
+    if (e.status === "start") {
+      stepsCard = null;
+      return;
+    }
+    if (e.status === "step") {
+      if (!stepsCard) {
+        stepsCard = document.createElement("article");
+        stepsCard.className = "assistant steps";
+        const l = document.createElement("label");
+        l.textContent = "COSMO \xB7 EXECUTANDO";
+        stepsCard.append(l, document.createElement("ol"));
+        $("#messages").append(stepsCard);
+      }
+      const li = document.createElement("li");
+      li.textContent = e.label;
+      stepsCard.querySelector("ol").append(li);
+      $("#messages").scrollTop = $("#messages").scrollHeight;
+    }
+    if (e.status === "end" && stepsCard) {
+      stepsCard.querySelector("label").textContent = "COSMO \xB7 PASSOS";
+      stepsCard.classList.add("done");
+      stepsCard = null;
+    }
+  }
+  $("#claude-model").onchange = save;
+  $("#agent-model").onchange = save;
+  $("#brain").onchange = save;
+  invoke("status").then((s) => {
+    $("#claude-model").value = s.settings.claudeModel || "claude-haiku-5-5";
+    $("#agent-model").value = s.settings.agentModel || "claude-sonnet-5-5";
+    $("#brain").checked = s.settings.brain !== false;
   }).catch(() => {
   });
 })();

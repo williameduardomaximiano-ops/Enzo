@@ -288,3 +288,8 @@ article.agent ol li:last-child{color:#fff}
 article.agent.done{border-left-color:#5cf0a8}article.agent.done label{color:#5cf0a8}
 article.agent.error{border-left-color:#ff7b7b}article.agent.error label{color:#ff7b7b}
 .mono{font-family:var(--hud-mono);font-size:11px!important;word-break:break-all}
+/* Passos do cérebro */
+article.steps{padding:10px 14px;border-left-color:#9fe3ff;background:#04163acc}
+article.steps label{color:#9fe3ff}
+article.steps ol{margin:4px 0 0;padding-left:18px;font-family:var(--hud-mono);font-size:10px;color:#bfeeff;line-height:1.8}
+article.steps:not(.done) ol li:last-child{color:#fff;animation:hud-pulse 1.2s infinite}
