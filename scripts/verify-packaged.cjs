@@ -5,7 +5,7 @@
  */
 const fs=require('node:fs');
 const path=require('node:path');
-const asar=require('@electron/asar');
+
 
 const REQUIRED=[
  'package.json','desktop/main.cjs','desktop/preload.cjs',
@@ -33,6 +33,7 @@ function verifyRelative(entry,requirePath,entries){
  if(!candidates.some(f=>entries.has(f)))throw Error('Import local inexistente em app.asar: '+entry+' -> '+requirePath);
 }
 function verifyArchive(archive){
+ const asar=require('@electron/asar');
  if(!fs.existsSync(archive))throw Error('app.asar não foi gerado: '+archive);
  const entries=verifyEntries(asar.listPackage(archive));
  let checked=0;
