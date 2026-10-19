@@ -210,6 +210,13 @@ $('#mission-form').addEventListener('submit',async e=>{
  }catch(err){notice('Missão: '+err.message);}
 });
 $('#mission-refresh').onclick=()=>refreshMissions().catch(e=>notice('Missões: '+e.message));
+$('#observe-windows').onclick=async()=>{
+ try{
+  const r=await invoke('observeWindows');
+  $('#windows-result').textContent=!r.approved?'Consulta não autorizada.':r.windows.length?r.windows.map(w=>w.title+' (processo '+w.processId+')').join('\n'):'Nenhuma janela acessível nesta sessão.';
+ }catch(err){$('#windows-result').textContent='Erro: '+err.message;}
+};
+
 $('#outreach-form').addEventListener('submit',async e=>{
  e.preventDefault();
  try{
