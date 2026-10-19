@@ -428,7 +428,7 @@
     $("#heading").textContent = { home: "Intelig\xEAncia com presen\xE7a.", settings: "Voc\xEA no controle.", android: "Uma presen\xE7a, dois dispositivos.", updates: "Sempre evoluindo." }[b.dataset.tab];
   });
   async function save() {
-    settings = await invoke("configure", { confirmClicks: $("#confirm-clicks").checked, claudeModel: $("#claude-model").value.trim(), agentModel: $("#agent-model").value.trim(), brain: $("#brain").checked, agent: $("#agent").value, agentFull: $("#agent-full").checked, quickOpen: $("#quick-open").checked, wake: $("#wake").checked, greet: $("#greet").checked, city: $("#city").value.trim(), provider: $("#provider").value, groqModel: $("#groq-model").value.trim(), geminiModel: $("#gemini-model").value.trim(), autoUpdate: $("#auto-update").checked, micDevice: $("#device").value, micSensitivity: $("#mic-sensitivity").value, micNoise: $("#mic-noise").checked, micEcho: $("#mic-echo").checked, micGain: $("#mic-gain").checked, continuous: $("#continuous").checked, remember: $("#remember").checked });
+    settings = await invoke("configure", { briefing: $("#briefing").checked, confirmClicks: $("#confirm-clicks").checked, claudeModel: $("#claude-model").value.trim(), agentModel: $("#agent-model").value.trim(), brain: $("#brain").checked, agent: $("#agent").value, agentFull: $("#agent-full").checked, quickOpen: $("#quick-open").checked, wake: $("#wake").checked, greet: $("#greet").checked, city: $("#city").value.trim(), provider: $("#provider").value, groqModel: $("#groq-model").value.trim(), geminiModel: $("#gemini-model").value.trim(), autoUpdate: $("#auto-update").checked, micDevice: $("#device").value, micSensitivity: $("#mic-sensitivity").value, micNoise: $("#mic-noise").checked, micEcho: $("#mic-echo").checked, micGain: $("#mic-gain").checked, continuous: $("#continuous").checked, remember: $("#remember").checked });
     notice("Configura\xE7\xE3o salva.");
   }
   $("#save-settings").onclick = () => save().catch((e) => notice(e.message));
@@ -855,6 +855,59 @@ ${e.update.notes}`;
   };
   invoke("status").then((s) => {
     $("#confirm-clicks").checked = s.settings.confirmClicks !== false;
+  }).catch(() => {
+  });
+  function parseContacts(text) {
+    return text.split(/\n+/).map((l) => l.match(/^\s*(.+?)\s*[:=–-]\s*([+\d][\d\s().-]{7,})\s*$/)).filter(Boolean).map((m) => ({ name: m[1], phone: m[2] }));
+  }
+  async function renderIntegrations() {
+    try {
+      const r = await invoke("integrationsStatus");
+      $("#email-address").value = r.emailAddress || "";
+      $("#email-host").value = r.emailHost || "";
+      $("#contacts").value = (r.contacts || []).map((c) => `${c.name}: ${c.phone}`).join("\n");
+      $("#integrations-status").textContent = `Agenda ${r.ics ? "\u2713 configurada" : "\u2014 n\xE3o configurada"} \xB7 E-mail ${r.imap && r.emailAddress ? "\u2713 configurado" : "\u2014 n\xE3o configurado"} \xB7 ${(r.contacts || []).length} contatos${r.persistent ? "" : " \xB7 criptografia indispon\xEDvel: senhas n\xE3o podem ser salvas"}`;
+    } catch (e) {
+      notice(e.message);
+    }
+  }
+  $("#save-integrations").onclick = async () => {
+    try {
+      const contacts = parseContacts($("#contacts").value);
+      const lines = $("#contacts").value.split(/\n+/).filter((l) => l.trim()).length;
+      settings = await invoke("configure", { emailAddress: $("#email-address").value.trim(), emailHost: $("#email-host").value.trim(), contacts });
+      const sec = {};
+      if ($("#imap").value.trim()) sec.imap = $("#imap").value;
+      if ($("#ics").value.trim()) sec.ics = $("#ics").value.trim();
+      if (Object.keys(sec).length) await invoke("integrationsSet", sec);
+      $("#imap").value = "";
+      $("#ics").value = "";
+      await renderIntegrations();
+      notice(lines > contacts.length ? `Integra\xE7\xF5es salvas. ${lines - contacts.length} linha(s) de contato n\xE3o reconhecida(s): use "Nome: n\xFAmero".` : "Integra\xE7\xF5es salvas.");
+    } catch (e) {
+      notice("Integra\xE7\xF5es: " + e.message);
+    }
+  };
+  $("#test-calendar").onclick = async () => {
+    notice("Consultando a agenda\u2026");
+    try {
+      notice(await invoke("integrationsTest", "calendar"));
+    } catch (e) {
+      notice("Agenda: " + e.message);
+    }
+  };
+  $("#test-email").onclick = async () => {
+    notice("Consultando o e-mail\u2026");
+    try {
+      notice(await invoke("integrationsTest", "email"));
+    } catch (e) {
+      notice("E-mail: " + e.message);
+    }
+  };
+  $("#briefing").onchange = save;
+  document.querySelectorAll('[data-tab="settings"]').forEach((b) => b.addEventListener("click", renderIntegrations));
+  invoke("status").then((s) => {
+    $("#briefing").checked = s.settings.briefing !== false;
   }).catch(() => {
   });
 })();

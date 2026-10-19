@@ -25,6 +25,11 @@ function skillIntent(text){
  if((m=s.match(/^(?:pesquise|pesquisa|procure|procura|busque|busca|abra|abre) (?:no google|o google)(?: sobre| por)? (.+)$/))||(m=s.match(/^google[,:]? (.+)$/)))return {type:'google',query:cap(m[1])};
  if((m=s.match(/^(?:pesquise|pesquisa|pesquisar|procure|procura|busque|busca|investigue)(?: (?:na internet|na web|online|pra mim|para mim))*(?: (?:sobre|por|o que e|quem e|como))? (.+)$/)))return {type:'research',query:cap(m[1])};
  if((m=s.match(/^(?:o que (?:ha|tem) de novo|quais (?:sao )?as (?:ultimas )?noticias|ultimas noticias|noticias)(?: (?:sobre|de|do|da|no|na))? (.+)$/)))return {type:'research',query:'notícias recentes sobre '+cap(m[1])};
+ // Agenda, e-mail, resumo do dia e WhatsApp
+ if(/^(?:resumo do dia|meu resumo|como (?:esta|ta|vai ser) (?:o )?meu dia|briefing|relatorio do dia)$/.test(s))return {type:'briefing'};
+ if((m=s.match(/^(?:o que (?:eu )?tenho (?:hoje|amanha|essa semana|esta semana)|(?:qual|como esta) (?:e )?(?:a )?minha agenda(?: (?:hoje|amanha|da semana))?|minha agenda(?: (?:de hoje|de amanha|da semana|hoje|amanha))?|meus compromissos(?: (?:de hoje|de amanha|da semana))?|tenho (?:algum )?compromisso(?: hoje| amanha)?)$/)))return {type:'calendar',days:/semana/.test(s)?7:1,offset:/semana/.test(s)?0:/amanha/.test(s)?1:0};
+ if(/^(?:tenho (?:algum )?e-?mails?(?: novos?| nao lidos?)?|(?:ver|veja|leia|le|checar|cheque|verifique) (?:meus )?e-?mails|e-?mails (?:novos|nao lidos)|chegou (?:algum )?e-?mail)$/.test(s))return {type:'email'};
+ if((m=s.match(/^(?:mande|manda|envie|envia|escreva|escreve)(?: uma)?(?: mensagem| msg| um zap| um whatsapp)?(?: no whatsapp| pelo whatsapp)? (?:pro|pra|para|ao|a) ([\w ]+?) (?:dizendo|falando|avisando|com a mensagem)(?: que)?[,:]? (.+)$/)))return {type:'whatsapp',contact:cap(m[1]),message:cap(m[2])};
  // Otimização do PC
  if(/^(?:otimize|otimiza|otimizar|acelere|acelera|acelerar|limpe|limpa|limpar|melhore|melhora|de uma geral no|faca uma limpeza no|faz uma limpeza no)(?: o| meu)? (?:pc|computador|windows|sistema|notebook)$|^(?:o |meu )?(?:pc|computador|notebook) (?:esta|ta) (?:lento|travando|pesado)$|^(?:limpe|limpa|limpar|apague|apaga) (?:os )?(?:arquivos )?temporarios$/.test(s))return {type:'optimize'};
  if(/^(?:esvazie|esvazia|esvaziar|limpe|limpa|limpar) (?:a )?lixeira$/.test(s))return {type:'recycle'};

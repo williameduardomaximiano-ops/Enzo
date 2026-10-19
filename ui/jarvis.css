@@ -293,3 +293,4 @@ article.steps{padding:10px 14px;border-left-color:#9fe3ff;background:#04163acc}
 article.steps label{color:#9fe3ff}
 article.steps ol{margin:4px 0 0;padding-left:18px;font-family:var(--hud-mono);font-size:10px;color:#bfeeff;line-height:1.8}
 article.steps:not(.done) ol li:last-child{color:#fff;animation:hud-pulse 1.2s infinite}
+textarea.field{width:100%;background:#020d15;border:1px solid var(--hud-line);border-radius:2px;color:var(--hud-strong);font-family:var(--hud-mono);padding:10px;resize:vertical}

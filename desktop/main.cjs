@@ -1,8 +1,8 @@
-const {app,BrowserWindow,ipcMain,dialog,shell,globalShortcut,session,Tray,Menu,nativeImage,safeStorage,Notification,clipboard,desktopCapturer,screen:displays}=require('electron');const screenLib=require('../core/screen.cjs');
+const {app,BrowserWindow,ipcMain,dialog,shell,globalShortcut,session,Tray,Menu,nativeImage,safeStorage,Notification,clipboard,desktopCapturer,screen:displays}=require('electron');const screenLib=require('../core/screen.cjs');const integ=require('../core/integrations.cjs');
 const path=require('node:path'),fs=require('node:fs'),os=require('node:os');const {spawn}=require('node:child_process');
 const {Gate,APPS,cleanText}=require('../core/policy.cjs');const {intent}=require('../core/intent.cjs');const {WorkMode}=require('../core/workmode.cjs');const {ModeStore,VoiceModes,parseTargets,normalizeName,LABELS}=require('../core/modes.cjs');const llm=require('../core/llm.cjs');const {Voice}=require('../core/voice.cjs');const {GitHubPrivateUpdater}=require('../updater/github-private.cjs');const {OWNER,REPO,PUBLIC_KEY_PEM}=require('../core/update-channel.cjs');const {Companion}=require('../core/android.cjs');const vaultLib=require('../core/vault.cjs');const {SecureStore,Memory,Reminders,jarvisIntent,sysinfo,statusReport,greeting,weather,describeDelay,formatAt,MEDIA}=require('../core/jarvis.cjs');const {skillIntent}=require('../core/skills.cjs');const {stripName}=require('../core/wake.cjs');const web=require('../core/web.cjs');const optimize=require('../core/optimize.cjs');const {AgentRunner,AGENTS,AGENT_MODEL,slug,sitePrompt,spoken}=require('../core/agent.cjs');const {runBrain,BRAIN_SYSTEM}=require('../core/brain.cjs');const {makeTools}=require('../core/tools.cjs');const {Files,summarizePlan,human}=require('../core/files.cjs');const {safeUrl}=require('../core/policy.cjs');
-let agentRunner=new AgentRunner(),memory,reminders,win,tray,voice,updater,companion,workMode,modeStore,voiceModes,root,python,dataDir,settings,controller,busy=false,epoch=0,updateTimer,controlProcess;const gate=new Gate();const history=[];let state='idle';
-const defaults={remember:false,continuous:false,compact:false,provider:'auto',groqModel:'openai/gpt-oss-120b',geminiModel:'gemini-3.5-flash',autoUpdate:true,micDevice:'',micSensitivity:'normal',micNoise:true,micEcho:true,micGain:true,wake:false,greet:true,city:'',agent:'claude',agentFull:false,quickOpen:true,projectsDir:'',lastProject:'',claudeModel:'claude-haiku-5-5',agentModel:AGENT_MODEL,brain:true,folders:[],confirmClicks:true};
+let agentRunner=new AgentRunner(),memory,reminders,secretStore,secrets={imap:'',ics:''},win,tray,voice,updater,companion,workMode,modeStore,voiceModes,root,python,dataDir,settings,controller,busy=false,epoch=0,updateTimer,controlProcess;const gate=new Gate();const history=[];let state='idle';
+const defaults={remember:false,continuous:false,compact:false,provider:'auto',groqModel:'openai/gpt-oss-120b',geminiModel:'gemini-3.5-flash',autoUpdate:true,micDevice:'',micSensitivity:'normal',micNoise:true,micEcho:true,micGain:true,wake:false,greet:true,city:'',agent:'claude',agentFull:false,quickOpen:true,projectsDir:'',lastProject:'',claudeModel:'claude-haiku-5-5',agentModel:AGENT_MODEL,brain:true,folders:[],confirmClicks:true,emailAddress:'',emailHost:'',contacts:[],briefing:true,lastBriefing:''};
 let apiKeys=vaultLib.emptyVault();
 function emit(type,data={}){win?.webContents.send('event',{type,...data});}
 function setState(s){state=s;emit('state',{state:s});}
@@ -46,7 +46,7 @@ function fileRoots(){const roots=['documents','downloads','desktop','pictures','
 function files(){return new Files({roots:fileRoots(),undoFile:path.join(dataDir,'organize-undo.json')});}
 function atTime(hhmm){const m=String(hhmm||'').match(/(\d{1,2})\s*[:h]\s*(\d{2})?/);if(!m)throw Error('Horário inválido.');const d=new Date();d.setHours(+m[1],+(m[2]||0),0,0);if(d<=Date.now())d.setDate(d.getDate()+1);return d.getTime();}
 // Ferramentas que ainda dependem de módulos em construção ficam fora da lista do cérebro.
-const BRAIN_PENDING=new Set(['calendar_events','email_unread','whatsapp_message','daily_briefing']);
+const BRAIN_PENDING=new Set();
 function brainContext(source,token){const signal=controller.signal;const desk=what=>{if(source!=='desktop')throw Error(`${what} só pode ser feito no computador.`);};
  return {
   search:async q=>(await web.search(q,{signal})).map((r,i)=>`[${i+1}] ${r.title} — ${r.url}`).join('\n')||'Nenhum resultado.',
@@ -81,8 +81,26 @@ function brainContext(source,token){const signal=controller.signal;const desk=wh
   screenClick:(t,d)=>{desk('Clicar na tela');return screenClick(t,d);},
   screenType:(t,e)=>{desk('Digitar na tela');return screenType(t,e);},
   pressKeys:k=>{desk('Usar o teclado');return pressKeys(k);},
-  github:repo=>require('../core/integrations.cjs').githubOverview({token:apiKeys.github,repo,signal}),
+  github:repo=>integ.githubOverview({token:apiKeys.github,repo,signal}),
+  calendar:days=>calendarText(days,signal),
+  email:limit=>emailText(limit),
+  whatsapp:(c,m)=>{desk('Abrir o WhatsApp');return whatsappSend(c,m);},
+  briefing:()=>briefingText(),
  };}
+// ===== Integrações: agenda, e-mail, WhatsApp e resumo do dia =====
+async function calendarText(days=1,signal,offset=0){const from=new Date();from.setDate(from.getDate()+offset);if(!secrets.ics)throw Error('Agenda não configurada. Em Configuração → Integrações, cole o "endereço secreto no formato iCal" do Google Agenda.');return (offset===1?'Amanhã: ':'')+integ.describeAgenda(integ.agenda(await integ.fetchCalendar(secrets.ics,{signal}),{days,now:from}),days).replace(/^Nenhum compromisso hoje\./,offset===1?'nenhum compromisso.':'Nenhum compromisso hoje.');}
+async function emailText(limit=5){return integ.describeEmails(await integ.unreadEmails({address:settings.emailAddress,password:secrets.imap,host:settings.emailHost,limit}));}
+async function whatsappSend(contact,message){const {name,phone}=integ.phoneOf(contact,settings.contacts);const u=integ.whatsappUrls(phone,String(message||'').slice(0,2000));
+ try{await shell.openExternal(u.app);}catch{await shell.openExternal(u.web);}audit('whatsapp-opened');return `WhatsApp aberto com a mensagem para ${name}. Falta só o senhor apertar enviar.`;}
+// Resumo do dia: cada parte é opcional e não trava as outras.
+async function briefingText(){const now=new Date();const parts=[greeting(now)];const t=AbortSignal.timeout(15000);
+ const [cal,mail,wx]=await Promise.allSettled([secrets.ics?integ.fetchCalendar(secrets.ics,{signal:t}).then(ics=>integ.agenda(ics,{days:1,now})):Promise.resolve(null),settings.emailAddress&&secrets.imap?integ.unreadEmails({address:settings.emailAddress,password:secrets.imap,host:settings.emailHost,limit:3}):Promise.resolve(null),settings.city?weather(settings.city,fetch,t):Promise.resolve(null)]);
+ if(cal.status==='fulfilled'&&cal.value){const left=cal.value.filter(e=>e.allDay||e.at>=now);parts.push(left.length?`Hoje o senhor tem ${left.length} compromisso${left.length>1?'s':''}: `+left.slice(0,3).map(e=>`${e.allDay?'':e.at.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+' '}${e.summary}`).join('; ')+'.':'Sua agenda está livre hoje.');}
+ if(mail.status==='fulfilled'&&mail.value)parts.push(mail.value.total?`Há ${mail.value.total} e-mail${mail.value.total>1?'s':''} não lido${mail.value.total>1?'s':''}${mail.value.messages[0]?`, o mais recente de ${mail.value.messages[0].from}`:''}.`:'Nenhum e-mail novo.');
+ const today=reminders.list().filter(r=>new Date(r.at).toDateString()===now.toDateString());if(today.length)parts.push(`${today.length} lembrete${today.length>1?'s':''} para hoje, o próximo às ${formatAt(today[0].at)}.`);
+ if(wx.status==='fulfilled'&&wx.value)parts.push(wx.value);
+ return parts.join(' ');}
+function loadSecrets(){const d=secretStore.load({});secrets={imap:typeof d.imap==='string'?d.imap:'',ics:typeof d.ics==='string'?d.ics:''};}
 // ===== Visão da tela e controle =====
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));let lastPoint=null;
 // Tira o COSMO da frente para enxergar e clicar no que está atrás dele.
@@ -115,6 +133,10 @@ async function handleSkill(k,source,token){
   else if(k.project){dir=path.join(projectsDir(),slug(k.project));if(!fs.existsSync(dir)){let list=[];try{list=fs.readdirSync(projectsDir(),{withFileTypes:true}).filter(e=>e.isDirectory()).map(e=>e.name);}catch{}throw Error(`Não encontrei o projeto ${k.project}.`+(list.length?` Projetos: ${list.slice(0,8).join(', ')}.`:''));}task=k.task;}
   else{dir=settings.lastProject&&fs.existsSync(settings.lastProject)?settings.lastProject:projectsDir();task=k.task;}
   if(!await confirmAgent(agent,task,dir))return 'Tarefa cancelada, senhor.';if(epoch!==token)throw Error('Pedido cancelado.');return startAgent({agent,task,dir,site});}
+ if(k.type==='briefing')return await briefingText();
+ if(k.type==='calendar')return await calendarText(k.days,controller.signal,k.offset||0);
+ if(k.type==='email')return await emailText(5);
+ if(k.type==='whatsapp'){if(source!=='desktop')throw Error('O WhatsApp só pode ser aberto no computador.');return await whatsappSend(k.contact,k.message);}
  if(k.type==='open_projects'){fs.mkdirSync(projectsDir(),{recursive:true});const err=await shell.openPath(projectsDir());if(err)throw Error(err);return 'Pasta de projetos aberta, senhor.';}
  if(k.type==='youtube'){const url=k.search||!k.query?(k.query?'https://www.youtube.com/results?search_query='+encodeURIComponent(k.query):'https://www.youtube.com/'):await web.youtubeUrl(k.query,{signal:controller.signal});await openSite(url,source);return k.query?`Colocando ${k.query} no YouTube, senhor.`:'YouTube aberto, senhor.';}
  if(k.type==='ask_ai'){let q=k.query;if(!q&&!k.open)q=[...history].reverse().find(h=>h.role==='assistant')?.content||'';const names={chatgpt:'ChatGPT',claude:'Claude',gemini:'Gemini'};
@@ -155,7 +177,7 @@ async function handleJarvis(j,source,token){
  throw Error('Comando desconhecido.');
 }
 async function checkUpdate(){const result=await updater.check();emit('update',{update:result});audit('update-checked',{found:result?result.version:null});return result?`Versão ${result.version} disponível. ${result.notes}`:'Você está na versão mais recente publicada.';}
-function backupUserData(tag){const dest=path.join(dataDir,'updates',`backup-${tag}-${Date.now()}`);fs.mkdirSync(dest,{recursive:true});for(const f of ['settings.json','vault.enc','modes.json','history.json','audit.jsonl','memory.enc','reminders.enc']){try{fs.copyFileSync(path.join(dataDir,f),path.join(dest,f));}catch{}}return dest;}
+function backupUserData(tag){const dest=path.join(dataDir,'updates',`backup-${tag}-${Date.now()}`);fs.mkdirSync(dest,{recursive:true});for(const f of ['settings.json','vault.enc','modes.json','history.json','audit.jsonl','memory.enc','reminders.enc','integrations.enc']){try{fs.copyFileSync(path.join(dataDir,f),path.join(dest,f));}catch{}}return dest;}
 async function installUpdate(){if(!updater.available)throw Error('Nenhuma atualização verificada disponível. Verifique primeiro.');const m=updater.available;const answer=await dialog.showMessageBox(win,{type:'question',message:`Instalar COSMO ${m.version}?`,detail:m.notes+'\nO COSMO será fechado após abrir o instalador. O Windows poderá pedir confirmação. Seus dados serão preservados.',buttons:['Cancelar','Instalar'],cancelId:0,defaultId:0});if(answer.response!==1)return 'Instalação cancelada.';const token=epoch;setState('updating');const file=await updater.download();if(token!==epoch)throw Error('Atualização cancelada antes da execução.');const backup=backupUserData(m.version);audit('update-backup',{dest:backup});const err=await shell.openPath(file);if(err)throw Error(err);app.quit();return 'Instalador aberto.';}
 async function handleChat(value,source='desktop'){
  const text=stripName(cleanText(value));if(intent(text).type==='stop'){stop();return {say:'Pausado. Microfone e controle desligados.'};}
@@ -215,6 +237,7 @@ const single=app.requestSingleInstanceLock();if(!single)app.quit();else app.when
   loadVault();
   const crypt={available:()=>safeStorage.isEncryptionAvailable(),encrypt:t=>safeStorage.encryptString(t),decrypt:b=>safeStorage.decryptString(b)};
   memory=new Memory(new SecureStore(path.join(dataDir,'memory.enc'),crypt));
+  secretStore=new SecureStore(path.join(dataDir,'integrations.enc'),crypt);loadSecrets();
   reminders=new Reminders(new SecureStore(path.join(dataDir,'reminders.enc'),crypt),r=>{const text=remindSay(r);audit('reminder-fired');emit('proactive',{text,kind:'reminder'});emit('hud',{});try{if(Notification.isSupported())new Notification({title:'COSMO',body:text}).show();}catch{}win?.flashFrame(true);});
   try{if(!vaultLib.ORDER.includes(settings.provider)){settings.provider='auto';saveSettings();}}catch{}
  if(settings.remember){try{history.push(...JSON.parse(fs.readFileSync(path.join(dataDir,'history.json'),'utf8')).slice(-24))}catch{}}
@@ -233,13 +256,19 @@ const single=app.requestSingleInstanceLock();if(!single)app.quit();else app.when
  ipc('transcribe',async audio=>{if(gate.paused)throw Error('Microfone pausado.');if(typeof audio!=='string'||audio.length>3000000)throw Error('Áudio inválido.');return voice.call('transcribe',{audio})});
  ipc('speak',async text=>{if(gate.paused)throw Error('Voz pausada.');return voice.call('speak',{text:cleanText(text,6000)})});
  ipc('stop',()=>{stop();return true});ipc('resume',()=>{gate.resume();setState('idle');return true});
- ipc('configure',cfg=>{if(!cfg||typeof cfg!=='object')throw Error('Configuração inválida.');if(typeof cfg.provider==='string')settings.provider=vaultLib.validateOrder(cfg.provider);for(const k of ['groqModel','geminiModel'])if(typeof cfg[k]==='string'&&/^[-\w.:/]{1,100}$/.test(cfg[k]))settings[k]=cfg[k];if(typeof cfg.micDevice==='string'&&cfg.micDevice.length<=500)settings.micDevice=cfg.micDevice;if(typeof cfg.micSensitivity==='string'&&['alta','normal','baixa'].includes(cfg.micSensitivity))settings.micSensitivity=cfg.micSensitivity;if(typeof cfg.city==='string'&&cfg.city.length<=80)settings.city=cfg.city.trim();if(typeof cfg.agent==='string'&&AGENTS[cfg.agent])settings.agent=cfg.agent;for(const k of ['claudeModel','agentModel'])if(typeof cfg[k]==='string'&&/^[-\w.:]{1,100}$/.test(cfg[k]))settings[k]=cfg[k];for(const k of ['remember','continuous','autoUpdate','micNoise','micEcho','micGain','wake','greet','agentFull','quickOpen','brain','confirmClicks'])if(typeof cfg[k]==='boolean')settings[k]=cfg[k];if(!settings.remember)fs.rmSync(path.join(dataDir,'history.json'),{force:true});saveSettings();return settings});
+ ipc('configure',cfg=>{if(!cfg||typeof cfg!=='object')throw Error('Configuração inválida.');if(typeof cfg.provider==='string')settings.provider=vaultLib.validateOrder(cfg.provider);for(const k of ['groqModel','geminiModel'])if(typeof cfg[k]==='string'&&/^[-\w.:/]{1,100}$/.test(cfg[k]))settings[k]=cfg[k];if(typeof cfg.micDevice==='string'&&cfg.micDevice.length<=500)settings.micDevice=cfg.micDevice;if(typeof cfg.micSensitivity==='string'&&['alta','normal','baixa'].includes(cfg.micSensitivity))settings.micSensitivity=cfg.micSensitivity;if(typeof cfg.city==='string'&&cfg.city.length<=80)settings.city=cfg.city.trim();if(typeof cfg.emailAddress==='string'&&cfg.emailAddress.length<=120&&(!cfg.emailAddress||/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cfg.emailAddress.trim())))settings.emailAddress=cfg.emailAddress.trim();if(typeof cfg.emailHost==='string'&&/^[\w.-]{0,120}$/.test(cfg.emailHost.trim()))settings.emailHost=cfg.emailHost.trim();if(Array.isArray(cfg.contacts))settings.contacts=cfg.contacts.filter(c=>c&&typeof c.name==='string'&&typeof c.phone==='string').slice(0,200).map(c=>({name:c.name.trim().slice(0,60),phone:c.phone.replace(/[^\d+]/g,'').slice(0,20)})).filter(c=>c.name&&c.phone);if(typeof cfg.agent==='string'&&AGENTS[cfg.agent])settings.agent=cfg.agent;for(const k of ['claudeModel','agentModel'])if(typeof cfg[k]==='string'&&/^[-\w.:]{1,100}$/.test(cfg[k]))settings[k]=cfg[k];for(const k of ['remember','continuous','autoUpdate','micNoise','micEcho','micGain','wake','greet','agentFull','quickOpen','brain','confirmClicks','briefing'])if(typeof cfg[k]==='boolean')settings[k]=cfg[k];if(!settings.remember)fs.rmSync(path.join(dataDir,'history.json'),{force:true});saveSettings();return settings});
  ipc('vault-set',cfg=>{if(!cfg||typeof cfg!=='object')throw Error('Dados inválidos.');const p=vaultLib.validateProvider(cfg.provider);if(typeof cfg.key==='string'&&cfg.key.trim()===''){apiKeys[p]='';persistVault();audit('vault-cleared',{provider:p});return vaultLib.statusOf(apiKeys);}apiKeys[p]=vaultLib.validateKey(cfg.key);persistVault();audit('vault-updated',{provider:p});return vaultLib.statusOf(apiKeys)});
  ipc('vault-status',()=>({configured:vaultLib.statusOf(apiKeys),encryption:safeStorage.isEncryptionAvailable()}));
  ipc('vault-clear',provider=>{const p=vaultLib.validateProvider(provider);apiKeys[p]='';persistVault();audit('vault-cleared',{provider:p});return vaultLib.statusOf(apiKeys)});
  ipc('clear-history',()=>{history.length=0;fs.rmSync(path.join(dataDir,'history.json'),{force:true});return true});
  ipc('sysinfo',()=>{const next=reminders.list()[0];return {...sysinfo(),reminders:reminders.list().length,next:next?{text:next.text,at:next.at}:null,memories:memory.list().length}});
- ipc('greeting',()=>greeting(new Date()));
+ ipc('greeting',async()=>{const today=new Date().toDateString();if(settings.briefing!==false&&settings.lastBriefing!==today){settings.lastBriefing=today;saveSettings();try{return await briefingText();}catch{}}return greeting(new Date());});
+ ipc('integrations-status',()=>({imap:!!secrets.imap,ics:!!secrets.ics,emailAddress:settings.emailAddress,emailHost:settings.emailHost,contacts:settings.contacts,persistent:secretStore.persistent}));
+ ipc('integrations-set',cfg=>{if(!cfg||typeof cfg!=='object')throw Error('Dados inválidos.');if(!secretStore.persistent)throw Error('Criptografia indisponível neste sistema. Senha não salva.');
+  if(typeof cfg.imap==='string'){const v=cfg.imap.replace(/\s+/g,'');if(v&&(v.length<8||v.length>200))throw Error('Senha de app inválida.');secrets.imap=v;}
+  if(typeof cfg.ics==='string'){const v=cfg.ics.trim();if(v&&!/^(https|webcal):\/\/\S{10,2000}$/i.test(v))throw Error('Link iCal inválido.');secrets.ics=v;}
+  secretStore.save(secrets);audit('integrations-updated');return {imap:!!secrets.imap,ics:!!secrets.ics};});
+ ipc('integrations-test',async kind=>{if(kind==='calendar')return await calendarText(1);if(kind==='email')return await emailText(3);throw Error('Teste desconhecido.');});
  ipc('agent-status',()=>({available:agentRunner.available(),busy:agentRunner.busy,projectsDir:projectsDir(),agent:settings.agent}));
  ipc('pick-projects',async()=>{const r=await dialog.showOpenDialog(win,{title:'Pasta dos projetos do COSMO',defaultPath:projectsDir(),properties:['openDirectory','createDirectory']});if(r.canceled||!r.filePaths[0])return projectsDir();settings.projectsDir=r.filePaths[0];saveSettings();return projectsDir();});
  ipc('memory-list',()=>({facts:memory.list(),persistent:safeStorage.isEncryptionAvailable()}));
