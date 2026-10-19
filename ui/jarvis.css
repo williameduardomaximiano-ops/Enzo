@@ -174,3 +174,42 @@ article.assistant,article.user,.card input:not([type=checkbox]),select,pre,.read
 @keyframes hud-draw{from{stroke-dashoffset:400}to{stroke-dashoffset:0}}
 @media(max-width:1000px){.spark,.redout{display:none}}
 @media(prefers-reduced-motion:reduce){.spark polyline{animation:none!important;stroke-dasharray:none}}
+
+/* ===== JARVIS v5: azul-marinho, colchetes brancos e brilho de base ===== */
+:root{--hud:#4cc9ff;--hud-strong:#e6f8ff;--hud-dim:#3d7fb8;--hud-line:#1d4f86;--hud-bg:#030c22;--hud-panel:#071a3dd9;--hud-red:#4cc9ff;--hud-gold:#e6f8ff}
+html{background:var(--hud-bg)}
+body{background:radial-gradient(ellipse at 50% 45%,#0f3f82 0,#082556 40%,#041330 75%,#030c22 100%) fixed}
+body::after{background-image:linear-gradient(#4cc9ff12 1px,transparent 1px),linear-gradient(90deg,#4cc9ff12 1px,transparent 1px);background-size:48px 48px}
+aside{background:linear-gradient(180deg,#061a40f0,#030c22f0)}
+.presence{background:radial-gradient(circle at 50% 45%,#1f6fc4 0,#0c3a7d 30%,#06204d 62%,#041330 90%);border-color:#2f7fd0}
+.card,.conversation,.voice-bar{--hud-panel:#06183ad9;border-color:#2f6fb8}
+article.assistant,article.user,.card input:not([type=checkbox]),select,pre,.readout,form{background:#041434e6}
+article.user{border-left-color:#e6f8ff}
+article.user label{color:#e6f8ff}
+.danger{background:#0b1d40;border-color:#7fa8d8;color:#e6f8ff}
+.danger:hover{border-color:#fff;box-shadow:0 0 14px #ffffff55}
+#hud-clock{color:#fff;text-shadow:0 0 12px var(--hud)}
+.readout.right{border-right-color:#fff}
+.r4{stroke:#fff;stroke-width:2;opacity:.7}
+.r5{stroke:#7fdcff;stroke-width:10;stroke-dasharray:180 700;opacity:.85}
+.spark polyline{stroke:#7fdcff;filter:drop-shadow(0 0 4px var(--hud))}
+.redout,.redout b{color:#fff}
+.redout b{text-shadow:0 0 12px var(--hud)}
+#notice{color:#9fe3ff}
+.brackets path{fill:none;stroke:#fff;stroke-width:9;stroke-linecap:butt;filter:drop-shadow(0 0 8px #9fe3ff) drop-shadow(0 0 16px var(--hud));animation:hud-breathe 3.5s ease-in-out infinite}
+.chev{position:absolute;top:50%;width:26px;height:46%;translate:0 -55%;background:#fff;filter:drop-shadow(0 0 10px var(--hud));opacity:.92}
+.chev.l{left:-4px;clip-path:polygon(100% 0,40% 50%,100% 100%,70% 100%,0 50%,70% 0)}
+.chev.r{right:-4px;clip-path:polygon(0 0,60% 50%,0 100%,30% 100%,100% 50%,30% 0)}
+.floor{position:absolute;left:15%;right:15%;bottom:38px;height:40px;background:radial-gradient(ellipse at center,#bfeeffcc 0,#4cc9ff55 35%,transparent 70%);filter:blur(6px)}
+@keyframes hud-breathe{50%{opacity:.6}}
+@media(prefers-reduced-motion:reduce){.brackets path{animation:none!important}}
+
+/* Núcleo de energia no lugar do rosto */
+#hologram{visibility:hidden}
+.core{position:absolute;left:50%;top:46%;width:min(34%,190px);aspect-ratio:1;translate:-50% -50%;border-radius:50%;background:radial-gradient(circle,#fff 0 8%,#bff0ff 16%,#4cc9ff 30%,#1a6fd066 52%,transparent 70%);box-shadow:0 0 60px #4cc9ffaa,0 0 120px #4cc9ff55;animation:hud-core 3s ease-in-out infinite}
+.core span{position:absolute;inset:14%;border-radius:50%;border:2px dashed #e6f8ffcc;animation:hud-spin 8s linear infinite}
+.core span::before{content:'';position:absolute;inset:18%;border-radius:50%;border:4px solid transparent;border-top-color:#fff;border-bottom-color:#fff;animation:hud-spin 3s linear infinite reverse}
+@keyframes hud-core{50%{scale:.92;opacity:.85}}
+@media(prefers-reduced-motion:reduce){.core,.core span,.core span::before{animation:none!important}}
+.holo-caption{z-index:3}
+.holo-caption p{display:inline-block;padding:3px 10px;background:#041330cc;border:1px solid #2f7fd055}
