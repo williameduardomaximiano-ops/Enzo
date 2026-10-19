@@ -2,6 +2,11 @@ const {modeIntent}=require('./mode-intents.cjs');const {stripInvocation}=require
 function norm(s){return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.!?]/g,'').trim();}
 function intent(text){const s=norm(stripInvocation(text));
  if(/^(pare|parar|cancele|cancelar|silencio|modo privacidade)$/.test(s))return {type:'stop'};
+ const raw=stripInvocation(text);
+ let memory=raw.match(/^(?:memorize|memorizar|lembre|lembre-se) (?:que |de que )?(.+)$/i);
+ if(memory)return {type:'memory_add',text:memory[1].trim()};
+ memory=raw.match(/^(?:o que (?:voce |você )?(?:lembra|sabe) (?:sobre|de)|pesquise (?:na )?mem[oó]ria(?: sobre)?)\s+(.+)$/i);
+ if(memory)return {type:'memory_search',query:memory[1].trim()};
  if(/^(?:liste|listar|mostre|mostrar) (?:minhas|as) missoes$/.test(s)||/^(?:minhas missoes|missoes salvas)$/.test(s))return {type:'mission_list'};
  const original=String(text).trim().replace(/^(?:(?:ei[, ]+)?(?:cosmo|enzo)[, ]*)/i,'').trim();
  const mission=original.match(/^(?:nova miss[aã]o|crie (?:uma )?miss[aã]o|criar (?:uma )?miss[aã]o)(?: para| de|:)?\s+(.+)$/i);
