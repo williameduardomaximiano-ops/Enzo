@@ -13,6 +13,7 @@ on:
       - 'android/**'
       - 'package.json'
       - 'scripts/installer.nsi'
+      - 'scripts/sign-release.cjs'
       - 'core/avatar-presets.cjs'
       - 'core/dashboard-metrics.cjs'
       - 'core/local-calendar.cjs'
@@ -22,6 +23,7 @@ on:
       - 'tests/voice-catalog.test.cjs'
       - 'tests/avatar-presets.test.cjs'
       - 'tests/cosmo-identity.test.cjs'
+      - 'tests/cosmo-release-sign.test.cjs'
       - 'tests/dashboard-metrics.test.cjs'
       - 'tests/local-calendar.test.cjs'
       - '.github/workflows/testar-vozes.yml'
@@ -42,6 +44,7 @@ jobs:
       - name: Checar sintaxe, vozes e avatares
         run: |
           node --check core/assistant-identity.cjs
+          node --check scripts/sign-release.cjs
           node --check core/intent.cjs
           node --check core/mode-intents.cjs
           node --check core/voice-catalog.cjs
@@ -51,7 +54,7 @@ jobs:
           node --check desktop/main.cjs
           node --check desktop/preload.cjs
           python -m py_compile voice/worker.py
-          node --test tests/voice-catalog.test.cjs tests/avatar-presets.test.cjs tests/dashboard-metrics.test.cjs tests/local-calendar.test.cjs tests/cosmo-identity.test.cjs
+          node --test tests/voice-catalog.test.cjs tests/avatar-presets.test.cjs tests/dashboard-metrics.test.cjs tests/local-calendar.test.cjs tests/cosmo-identity.test.cjs tests/cosmo-release-sign.test.cjs
       - name: Verificar montagem da interface
         run: |
           npm ci
