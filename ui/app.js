@@ -210,4 +210,12 @@ $('#mission-form').addEventListener('submit',async e=>{
  }catch(err){notice('Missão: '+err.message);}
 });
 $('#mission-refresh').onclick=()=>refreshMissions().catch(e=>notice('Missões: '+e.message));
+$('#outreach-form').addEventListener('submit',async e=>{
+ e.preventDefault();
+ try{
+  const data={company:$('#outreach-company').value,phone:$('#outreach-phone').value,siteUrl:$('#outreach-site').value};
+  const r=await invoke('outreachDraft',data);
+  notice(r.opened?'Rascunho aberto. Revise e envie somente se for apropriado.':'Envio cancelado. Nada foi enviado.');
+ }catch(err){notice('WhatsApp: '+err.message);}
+});
 refreshMissions().catch(e=>notice('Missões: '+e.message));
