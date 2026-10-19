@@ -1,9 +1,9 @@
 const {app,BrowserWindow,ipcMain,dialog,shell,globalShortcut,session,Tray,Menu,nativeImage,safeStorage}=require('electron');
 const path=require('node:path'),fs=require('node:fs'),os=require('node:os');const {spawn}=require('node:child_process');
-const {Gate,APPS,cleanText}=require('../core/policy.cjs');const {MissionCenter}=require('../core/mission-center.cjs');const {MemoryStore}=require('../core/local-memory.cjs');const {Recovery}=require('../core/recovery.cjs');const {createDraft}=require('../core/outreach-draft.cjs');const {observeWindows}=require('../core/windows-observer.cjs');const {publishPreview}=require('../core/vercel-preview.cjs');const {intent}=require('../core/intent.cjs');const {WorkMode}=require('../core/workmode.cjs');const {ModeStore,VoiceModes,parseTargets,normalizeName,LABELS}=require('../core/modes.cjs');const llm=require('../core/llm.cjs');const {Voice}=require('../core/voice.cjs');const {DashboardMetrics}=require('../core/dashboard-metrics.cjs');const {LocalCalendar}=require('../core/local-calendar.cjs');const {VOICES,TONES,voiceById,toneById,validateVoice,validateTone,matchVoiceIntent}=require('../core/voice-catalog.cjs');const {AVATARS,validateAvatar,avatarIntent,byId:avatarById}=require('../core/avatar-presets.cjs');const {GitHubPrivateUpdater}=require('../updater/github-private.cjs');const {OWNER,REPO,PUBLIC_KEY_PEM}=require('../core/update-channel.cjs');const {Companion}=require('../core/android.cjs');const vaultLib=require('../core/vault.cjs');
+const {Gate,APPS,cleanText}=require('../core/policy.cjs');const {MissionCenter}=require('../core/mission-center.cjs');const {MemoryStore}=require('../core/local-memory.cjs');const {Recovery}=require('../core/recovery.cjs');const {createDraft}=require('../core/outreach-draft.cjs');const {observeWindows}=require('../core/windows-observer.cjs');const {runScript,validateButton}=require('../core/windows-controls.cjs');const {publishPreview}=require('../core/vercel-preview.cjs');const {intent}=require('../core/intent.cjs');const {WorkMode}=require('../core/workmode.cjs');const {ModeStore,VoiceModes,parseTargets,normalizeName,LABELS}=require('../core/modes.cjs');const llm=require('../core/llm.cjs');const {Voice}=require('../core/voice.cjs');const {DashboardMetrics}=require('../core/dashboard-metrics.cjs');const {LocalCalendar}=require('../core/local-calendar.cjs');const {VOICES,TONES,voiceById,toneById,validateVoice,validateTone,matchVoiceIntent}=require('../core/voice-catalog.cjs');const {AVATARS,validateAvatar,avatarIntent,byId:avatarById}=require('../core/avatar-presets.cjs');const {GitHubPrivateUpdater}=require('../updater/github-private.cjs');const {OWNER,REPO,PUBLIC_KEY_PEM}=require('../core/update-channel.cjs');const {Companion}=require('../core/android.cjs');const vaultLib=require('../core/vault.cjs');
 let win,tray,voice,updater,companion,workMode,modeStore,voiceModes,metrics,calendar,missions,memories,recovery,root,python,dataDir,settings,controller,busy=false,epoch=0,updateTimer,controlProcess;const gate=new Gate();const history=[];let state='idle';
 const defaults={remember:false,continuous:false,compact:false,provider:'auto',groqModel:'openai/gpt-oss-120b',geminiModel:'gemini-3.5-flash',autoUpdate:true,micDevice:'',micSensitivity:'normal',micNoise:true,micEcho:true,micGain:true,voiceProfile:'piper-faber',voiceTone:'natural',avatarPreset:'original'};
-let apiKeys=vaultLib.emptyVault();
+let apiKeys=vaultLib.emptyVault();const observedWindows=new Map();const inspectedControls=new Map();
 function emit(type,data={}){win?.webContents.send('event',{type,...data});}
 function setState(s){state=s;emit('state',{state:s});}
 function audit(type,data={}){const entry={at:new Date().toISOString(),type,...data};fs.appendFileSync(path.join(dataDir,'audit.jsonl'),JSON.stringify(entry)+'\n');}
@@ -89,7 +89,7 @@ async function handleChat(value,source='desktop'){
  if(epoch!==token)throw Error('Pedido cancelado.');history.push({role:'user',content:text},{role:'assistant',content:result.say});if(history.length>24)history.splice(0,history.length-24);if(settings.remember)fs.writeFileSync(path.join(dataDir,'history.json'),JSON.stringify(history));audit('request-completed',{source});if(source==='android')emit('remote',{text,reply:result.say});return result;
  }catch(e){audit('request-failed',{source});throw e;}finally{if(token===epoch){busy=false;setState(gate.paused?'paused':'idle');}}
 }
-function stop(){epoch++;try{workMode?.end();voiceModes?.stop();missions?.stop();}catch{}controller?.abort();controlProcess?.kill();voice?.stop();busy=false;gate.pause();setState('paused');emit('stop');audit('paused');}
+function stop(){observedWindows.clear();inspectedControls.clear();epoch++;try{workMode?.end();voiceModes?.stop();missions?.stop();}catch{}controller?.abort();controlProcess?.kill();voice?.stop();busy=false;gate.pause();setState('paused');emit('stop');audit('paused');}
 function ipc(name,fn){ipcMain.handle(name,async(e,...args)=>{if(e.sender!==win.webContents||e.senderFrame!==win.webContents.mainFrame)throw Error('Origem IPC recusada.');try{return {ok:true,data:await fn(...args)}}catch(error){return {ok:false,error:error.message}}});}
 const single=app.requestSingleInstanceLock();if(!single)app.quit();else app.whenReady().then(()=>{
  dataDir=app.getPath('userData');metrics=new DashboardMetrics();calendar=new LocalCalendar(dataDir);missions=new MissionCenter(dataDir);recovery=new Recovery(dataDir);if(safeStorage.isEncryptionAvailable())memories=new MemoryStore(dataDir,{encrypt:s=>safeStorage.encryptString(s),decrypt:b=>safeStorage.decryptString(b)});workMode=new WorkMode();modeStore=new ModeStore(dataDir);voiceModes=new VoiceModes(modeStore);root=app.isPackaged?process.resourcesPath:path.join(__dirname,'..');const runtime=app.isPackaged?path.join(root,'runtime'):path.join(root,'resources');python=process.platform==='win32'?path.join(runtime,'python','python.exe'):(process.env.ENZO_PYTHON||'python3');
@@ -120,7 +120,30 @@ const single=app.requestSingleInstanceLock();if(!single)app.quit();else app.when
    if(gate.paused)throw Error('COSMO pausado.');
    const confirmation=await dialog.showMessageBox(win,{type:'question',title:'COSMO • Acessibilidade',message:'Listar títulos das janelas abertas?',detail:'Apenas nomes das janelas e processos, sem ler conteúdo, capturar tela ou enviar dados à nuvem. Nenhuma janela será controlada.',buttons:['Cancelar','Permitir esta consulta'],defaultId:0,cancelId:0,noLink:true});
    if(confirmation.response!==1)return {windows:[],approved:false};
-   return {windows:await observeWindows(),approved:true};
+   const windows=await observeWindows();observedWindows.clear();inspectedControls.clear();for(const w of windows){observedWindows.set(w.processId,{title:w.title,expires:Date.now()+90000});}return {windows,approved:true};
+ });
+ ipc('controls-inspect',async pid=>{
+   if(gate.paused)throw Error('COSMO pausado.');
+   const observed=observedWindows.get(pid);
+   if(!observed||observed.expires<Date.now())throw Error('Janela não autorizada; consulte as janelas novamente.');
+   const response=await dialog.showMessageBox(win,{type:'question',title:'COSMO • Inspecionar controles',message:'Permitir listar botões acessíveis?',detail:'Janela: '+observed.title+'\nSomente nomes dos botões e IDs acessíveis. Nenhum clique será executado.',buttons:['Cancelar','Inspecionar'],cancelId:0,defaultId:0,noLink:true});
+   if(response.response!==1)return {approved:false,controls:[]};
+   const controls=await runScript(pid);
+   inspectedControls.set(pid,{expires:Date.now()+60000,controls});
+   return {approved:true,controls};
+ });
+ ipc('controls-click',async (pid,button)=>{
+   if(gate.paused)throw Error('COSMO pausado.');
+   const observed=observedWindows.get(pid),recent=inspectedControls.get(pid);
+   if(!observed||observed.expires<Date.now()||!recent||recent.expires<Date.now())throw Error('A inspeção expirou; leia os controles novamente.');
+   const safe=validateButton(button);
+   if(!recent.controls.some(x=>x.name===safe.name&&x.automationId===safe.automationId))throw Error('Botão não estava na lista de controles autorizados.');
+   const response=await dialog.showMessageBox(win,{type:'warning',title:'COSMO • Clique autorizado',message:'Executar um clique acessível?',detail:'Janela: '+observed.title+'\nBotão: '+safe.name+'\nControle: '+safe.automationId+'\nO botão pode executar uma ação no aplicativo. Só permita se reconhecer sua finalidade.',buttons:['Cancelar','Autorizar um clique'],cancelId:0,defaultId:0,noLink:true});
+   if(response.response!==1)return {clicked:false};
+   if(gate.paused)throw Error('COSMO pausado.');
+   recent.controls=[];observedWindows.delete(pid); // exigir nova inspeção antes de outro clique
+   const result=await runScript(pid,safe);audit('uia-click',{processId:pid,button:safe.name.slice(0,40)});
+   return {clicked:result.clicked===true};
  });
  ipc('missions-publish',async id=>{
    if(gate.paused)throw Error('COSMO pausado.');
