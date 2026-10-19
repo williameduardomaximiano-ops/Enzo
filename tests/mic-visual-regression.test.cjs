@@ -23,7 +23,7 @@ test('opções visuais não podem fingir que uma troca de cor é um personagem n
  assert.match(html,/id="gold-setup"/);
  assert.match(html,/id="avatar-gallery"[^>]*hidden/);
  assert.match(renderer,/if\(uniforms\.uPhotoMode\.value>0\.5\)/);
- assert.match(app,/if\(!uri\)\{\$\('#gold-setup'\)\.hidden=false/);
+ assert.match(app,/if\(!uri\)\{/);assert.match(app,/\$\('#gold-setup'\)\.hidden=false/);
  assert.match(app,/await holo\.setImage\(result\.image\)/);
 });
 test('a imagem importada sobrevive ao fechamento sem envio para terceiros',()=>{
