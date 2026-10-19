@@ -13,7 +13,7 @@ function category(goal){
  if(/\b(crm|gestao de clientes|sistema de atendimento)\b/.test(s))return 'crm';
  if(/\b(landing page|pagina de vendas|pagina de captura)\b/.test(s))return 'landing';
  if(/\b(site|website|pagina web|portfolio)\b/.test(s))return 'site';
- if(/\b(app|aplicativo|sistema|saas|dashboard|automacao|automação)\b/.test(s))return 'app';
+ if(/\b(app|aplicativo|sistema|saas|dashboard|automacao|automatizar|automacao de|controle de estoque)\b/.test(s))return 'app';
  return 'geral';
 }
 function validGoal(value) {
