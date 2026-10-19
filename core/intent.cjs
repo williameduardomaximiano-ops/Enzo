@@ -1,6 +1,6 @@
-const {modeIntent}=require('./mode-intents.cjs');
+const {modeIntent}=require('./mode-intents.cjs');const {stripInvocation}=require('./assistant-identity.cjs');
 function norm(s){return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.!?]/g,'').trim();}
-function intent(text){const s=norm(text).replace(/^enzo[, ]*/,'');
+function intent(text){const s=norm(stripInvocation(text));
  if(/^(pare|parar|cancele|cancelar|silencio|modo privacidade)$/.test(s))return {type:'stop'};
  if(/^(?:(?:iniciar|inicia|ative|ativar|abrir|abre|come[cç]ar|comece|ligar|liga|entrar no|entre no) (?:o )?)?modo (?:de )?trabalho$/.test(s)||/^(vamos trabalhar|hora de trabalhar|iniciar expediente|inicia o expediente)$/.test(s))return {type:'work_mode_start'};
  if(/^(?:encerrar|encerre|desativar|desative|sair do|finalizar|finalize|fechar|feche) (?:o )?modo (?:de )?trabalho$/.test(s))return {type:'work_mode_end'};
@@ -13,7 +13,7 @@ function intent(text){const s=norm(text).replace(/^enzo[, ]*/,'');
  if(/^(abr(a|ir)|inici(ar|e)) (o )?bloco de notas$/.test(s))return {type:'action',action:{type:'open_app',app:'bloco'}};
  if(/^abr(a|ir) (o )?(explorador|explorador de arquivos)$/.test(s))return {type:'action',action:{type:'open_app',app:'explorador'}};
  if(/^abr(a|ir) (o )?(navegador|brave)$/.test(s))return {type:'action',action:{type:'open_url',url:'https://www.google.com'}};
- const link=text.match(/^(?:enzo[, ]*)?abr(?:a|ir)\s+(https?:\/\/\S+)$/i);if(link)return {type:'action',action:{type:'open_url',url:link[1]}};
+ const link=stripInvocation(text).match(/^abr(?:a|ir)\s+(https?:\/\/\S+)$/i);if(link)return {type:'action',action:{type:'open_url',url:link[1]}};
  return {type:'chat'};
 }
 module.exports={intent};
