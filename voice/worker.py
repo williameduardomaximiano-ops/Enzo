@@ -5,6 +5,26 @@ ROOT=Path(os.environ.get('ENZO_MODELS', str(Path(__file__).parent.parent/'resour
 voice=None
 recognizer=None
 
+def jarvis_style(raw):
+    """Timbre estilo assistente de IA: mais grave e calmo, leve brilho metálico e eco curto."""
+    import numpy as np
+    with wave.open(io.BytesIO(raw),'rb') as wav:
+        rate,width,channels=wav.getframerate(),wav.getsampwidth(),wav.getnchannels()
+        if width!=2 or channels!=1: return raw
+        x=np.frombuffer(wav.readframes(wav.getnframes()),dtype=np.int16).astype(np.float32)/32768.0
+    y=x.copy()
+    d=int(rate*0.0045); y[d:]+=0.28*x[:-d]          # filtro pente: timbre metálico
+    t=np.arange(len(y))/rate; y*=1+0.06*np.sin(2*np.pi*55*t)   # modulação sutil "eletrônica"
+    for delay,gain in ((0.045,0.16),(0.09,0.08)):   # eco curto de sala
+        d=int(rate*delay); y[d:]+=gain*x[:-d]
+    y=np.concatenate([y,np.zeros(int(rate*0.12),dtype=np.float32)])
+    y/=max(1.0,float(np.abs(y).max())/0.92)
+    out=io.BytesIO()
+    with wave.open(out,'wb') as wav:
+        wav.setnchannels(1);wav.setsampwidth(2);wav.setframerate(int(rate*0.92))   # ~8% mais grave e pausado
+        wav.writeframes((y*32767).astype(np.int16).tobytes())
+    return out.getvalue()
+
 def execute(req):
     global voice, recognizer
     op=req.get('op')
@@ -18,7 +38,7 @@ def execute(req):
             voice=PiperVoice.load(str(ROOT/'pt_BR-faber-medium.onnx'))
         out=io.BytesIO()
         with wave.open(out,'wb') as wav: voice.synthesize_wav(text,wav)
-        return {'audio':base64.b64encode(out.getvalue()).decode()}
+        return {'audio':base64.b64encode(jarvis_style(out.getvalue())).decode()}
     if op=='transcribe':
         encoded=req.get('audio','')
         if not isinstance(encoded,str) or len(encoded)>3000000: raise ValueError('Áudio excede o limite')
