@@ -32,15 +32,27 @@
   // core/wake.cjs
   var require_wake = __commonJS({
     "core/wake.cjs"(exports, module) {
-      var WAKE = /^(?:(?:ei|ok|oi|olá|ola|e ai|e aí|fala)[, ]+)?(?:enzo|enso|ênzo|jarvis)\b[,.!? ]*/i;
+      var NAME = "(?:enzo|enso|\xEAnzo|jarvis)";
+      var GREET = "(?:bom dia|boa tarde|boa noite|ol\xE1|ola|oi|e a\xED|e ai|fala)";
+      var START = new RegExp(`^(?:(?:ei|ok|${GREET})[, ]+)?${NAME}\\b[,.!? ]*`, "i");
+      var END = new RegExp(`[, ]+${NAME}[.!? ]*$`, "i");
       function wakeWord2(text) {
         if (typeof text !== "string") return null;
         const s = text.trim().replace(/^[^\p{L}]+/u, "");
-        const m = s.match(WAKE);
-        if (!m) return null;
-        return s.slice(m[0].length).trim();
+        const m = s.match(START);
+        if (m) {
+          const rest = s.slice(m[0].length).trim();
+          const greet = m[0].match(new RegExp(`^${GREET}`, "i"));
+          return rest || (greet ? greet[0] : "");
+        }
+        const e = s.match(END);
+        if (e && e.index > 0) return s.slice(0, e.index).trim();
+        return null;
       }
-      module.exports = { wakeWord: wakeWord2 };
+      function stripName(text) {
+        return String(text).trim().replace(new RegExp(`^(?:ei|ok)?[, ]*${NAME}[, ]+`, "i"), "").replace(END, "").trim() || String(text).trim();
+      }
+      module.exports = { wakeWord: wakeWord2, stripName };
     }
   });
 
@@ -54,6 +66,19 @@
   var armed = 0;
   var greeted = false;
   var batteryWarned = false;
+  var turn = null;
+  var secs = (ms) => (ms / 1e3).toFixed(1).replace(".", ",");
+  function mark(k) {
+    if (turn) turn[k] = performance.now();
+  }
+  function reportTurn() {
+    if (!turn?.heard || !turn.stt) return;
+    const t = turn, now = performance.now();
+    const think = (t.chat || t.stt) - t.stt, voice = now - (t.chat || t.stt);
+    $("#voice-metric").textContent = `\xDAltima resposta por voz: ${secs(now - t.end)} s \u2014 entender a fala ${secs(t.stt - t.end)} s \xB7 pensar ${secs(think)} s \xB7 gerar a voz ${secs(voice)} s`;
+    notice(`Respondi em ${secs(now - t.end)} s.`);
+    turn = null;
+  }
   var api = window.enzo;
   var settings = {};
   var active = false;
@@ -183,6 +208,7 @@
           resolve();
         };
         player.start();
+        reportTurn();
         const check = setInterval(() => {
           if (token !== generation) {
             done = true;
@@ -212,6 +238,7 @@
     state("thinking");
     try {
       const r = await invoke("chat", text);
+      mark("chat");
       if (token !== generation) return;
       message(r.text || r.say);
       await speak(r.say, token);
@@ -267,6 +294,7 @@
     state("thinking");
     try {
       const data = await invoke("transcribe", wavBase64(chunks));
+      mark("stt");
       if (token !== generation) return;
       busy = false;
       const heardText = (data.text || "").trim();
@@ -354,12 +382,13 @@
           frames = frames.slice(-3);
           samples = frames.reduce((n, x) => n + x.length, 0);
         }
-        if (heard && (silent > 16e3 * 0.85 || samples >= 16e3 * 28)) {
+        if (heard && (silent > 16e3 * 0.7 || samples >= 16e3 * 28)) {
           const chunks = frames;
           frames = [];
           samples = 0;
           heard = false;
           silent = 0;
+          turn = { end: performance.now(), heard: true };
           transcribe(chunks);
         }
       };

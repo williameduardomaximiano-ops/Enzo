@@ -30,6 +30,15 @@ def execute(req):
     op=req.get('op')
     if op=='health':
         return {'tts':(ROOT/'pt_BR-faber-medium.onnx').is_file(), 'stt':(ROOT/'whisper-base'/'model.bin').is_file()}
+    if op=='warmup':
+        # Carrega voz e reconhecimento ao abrir o ENZO, para a primeira resposta não esperar o carregamento.
+        if voice is None and (ROOT/'pt_BR-faber-medium.onnx').is_file():
+            from piper import PiperVoice
+            voice=PiperVoice.load(str(ROOT/'pt_BR-faber-medium.onnx'))
+        if recognizer is None and (ROOT/'whisper-base'/'model.bin').is_file():
+            from faster_whisper import WhisperModel
+            recognizer=WhisperModel(str(ROOT/'whisper-base'),device='cpu',compute_type='int8',cpu_threads=max(1,min(4,os.cpu_count() or 2)),local_files_only=True)
+        return {'tts':voice is not None,'stt':recognizer is not None}
     if op=='speak':
         text=req.get('text','')
         if not isinstance(text,str) or not 0<len(text)<=6000: raise ValueError('Texto inválido')
