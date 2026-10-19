@@ -1,4 +1,4 @@
-name: COSMO 0.1.7 - instalador Windows de teste
+name: COSMO 0.1.7 - instalador Windows corrigido
 on:
   push:
     branches: ['feature/cosmo-rename', 'feature/cosmo-missoes-autonomia', 'feature/cosmo-017-capabilities']
@@ -6,6 +6,8 @@ on:
       - '.github/workflows/build-cosmo-windows.yml'
       - 'scripts/installer.nsi'
       - 'scripts/uninstall-list.cjs'
+      - 'scripts/verify-packaged.cjs'
+      - 'updater/**'
       - 'package.json'
       - 'package-lock.json'
       - 'core/**'
@@ -39,6 +41,8 @@ jobs:
         run: python scripts/prepare-runtime.py
       - name: Gerar instalador Windows x64
         run: npm run build:win
+      - name: Inspecionar app.asar e impedir inicializacao com modulo ausente
+        run: node scripts/verify-packaged.cjs
       - name: Validar nome e hash do instalador
         shell: pwsh
         run: |
@@ -50,7 +54,7 @@ jobs:
           Get-Item $p | Select-Object Name,Length
       - uses: actions/upload-artifact@v4
         with:
-          name: COSMO-0.1.7-Windows-x64-TESTE
+          name: COSMO-0.1.7-Windows-x64-CORRIGIDO
           path: |
             dist/ENZO-0.1.7-Windows-x64.exe
             dist/SHA256-COSMO-0.1.7.txt
