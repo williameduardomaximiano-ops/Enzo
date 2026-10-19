@@ -190,7 +190,7 @@ export function createHologram(canvas) {
         },undefined,()=>reject(Error('Não foi possível carregar a foto original.')));
       });
     },
-    setPreset(name){if(!Object.hasOwn(accentColors,name))return false;uniforms.uAccent.value.setHex(accentColors[name]);uniforms.uVisualMode.value=name==='original'?0:1;canvas.dataset.avatarPreset=name;return true;},
+    setPreset(name){if(!Object.hasOwn(accentColors,name))return false;if(uniforms.uPhotoMode.value>0.5){uniforms.uVisualMode.value=0;canvas.dataset.avatarPreset='cosmo-original-preto-dourado';return name==='original';}uniforms.uAccent.value.setHex(accentColors[name]);uniforms.uVisualMode.value=name==='original'?0:1;canvas.dataset.avatarPreset=name;return true;},
     setState(s){state=s},
     setLevel(v){level=Number.isFinite(v)?Math.max(0,v):0},
     dispose(){if(disposed)return;disposed=true;cancelAnimationFrame(frameId);
