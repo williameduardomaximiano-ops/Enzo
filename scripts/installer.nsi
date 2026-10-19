@@ -20,7 +20,7 @@ Function .onInit
   Abort
  ${EndIf}
  ${IfNot} ${AtLeastWin10}
-  MessageBox MB_ICONSTOP "ENZO exige Windows 10 ou mais recente."
+  MessageBox MB_ICONSTOP "COSMO exige Windows 10 ou mais recente."
   Abort
  ${EndIf}
 FunctionEnd
@@ -51,7 +51,7 @@ Section "Uninstall"
  Delete "$DESKTOP\ENZO.lnk"
  Delete "$SMPROGRAMS\ENZO\ENZO.lnk"
  RMDir "$SMPROGRAMS\ENZO"
- ; Remove only files belonging to ENZO. Never delete user data or arbitrary folders.
+ ; Remove only files belonging to the app. Never delete user data or arbitrary folders.
  !include "${PROJECT_DIR}/scripts/uninstall-files.nsh"
  Delete "$INSTDIR\Desinstalar COSMO.exe"
  Delete "$INSTDIR\Desinstalar ENZO.exe"
