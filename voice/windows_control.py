@@ -8,6 +8,11 @@ def run(action):
     class LASTINPUTINFO(ctypes.Structure): _fields_=[('cbSize',wintypes.UINT),('dwTime',wintypes.DWORD)]
     def last():
         x=LASTINPUTINFO();x.cbSize=ctypes.sizeof(x);user.GetLastInputInfo(ctypes.byref(x));return x.dwTime
+    if action['type']=='empty_recycle':
+        # SHERB_NOCONFIRMATION|NOPROGRESSUI|NOSOUND; lixeira já vazia também conta como sucesso.
+        hr=ctypes.windll.shell32.SHEmptyRecycleBinW(None,None,0x7)
+        if hr not in (0,-2147418113):raise RuntimeError(f'Falha ao esvaziar a Lixeira ({hr})')
+        return {'ok':True}
     if action['type']=='media':
         # Teclas multimídia do Windows: não dependem da janela em foco nem digitam texto.
         mapping={'volume_up':0xAF,'volume_down':0xAE,'mute':0xAD,'play_pause':0xB3,'next':0xB0,'previous':0xB1}

@@ -73,3 +73,11 @@ Código ENZO sob GPL-3.0-or-later. Consulte `LICENSE` e `third-party/NOTICE.md`.
 - **Mídia**: aumentar/diminuir volume, silenciar, tocar/pausar, próxima/anterior (teclas multimídia do Windows).
 - **Status do sistema**: CPU, memória e tempo ligado, por voz e no HUD em tempo real.
 - **Proatividade**: saudação ao iniciar, lembretes e aviso de bateria abaixo de 20%.
+
+## Faça de tudo: agente, internet e PC
+
+- **Agente de programação** (Claude Code ou OpenCode instalado no PC, escolha em Configuração → Agentes): “crie um site de uma barbearia”, “crie um jogo da cobrinha”, “no projeto loja, adicione um carrinho”, “peça pro Claude…”, “peça pro OpenCode…”. Cada tarefa pede confirmação, roda em segundo plano na pasta de projetos (padrão `Documentos\ENZO Projetos`), mostra o progresso na conversa e o ENZO avisa por voz ao terminar; sites prontos abrem no navegador. Pedidos livres que exigem trabalho no PC também podem virar tarefa do agente (sempre com confirmação). Por padrão o Claude Code só edita arquivos e roda npm/node/git/python; “liberar todos os comandos” é opcional.
+- **Pesquisa com fontes**: “pesquise sobre…”, “últimas notícias sobre…”. Busca no DuckDuckGo, lê as páginas e a IA resume citando as fontes (requer chave Groq ou Gemini para o resumo).
+- **YouTube**: “toque Coldplay no YouTube”, “coloca a música…”, “pesquise no YouTube…” (abre direto o primeiro vídeo).
+- **ChatGPT, Claude, Gemini e Google**: “mande pro ChatGPT…”, “mande isso pro ChatGPT” (envia a última resposta), “pergunte ao Claude…”, “pesquise no Google…”.
+- **Otimizar o PC**: “otimize meu PC” analisa disco, temporários e processos que mais usam memória e, com sua confirmação, limpa temporários com mais de 1 dia e esvazia a Lixeira. Também: “esvazie a lixeira”, “abra os aplicativos de inicialização”, “abra o gerenciador de tarefas”.

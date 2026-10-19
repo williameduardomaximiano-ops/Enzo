@@ -279,3 +279,12 @@ nav button{transition:.25s}nav button:hover{translate:6px 0}
 .memory .icon{padding:0 6px;font-size:16px;line-height:1}
 .quick{flex-wrap:wrap}
 .stream[data-live]{top:auto;bottom:118px;padding:8px 10px;background:#041330d9!important;border:1px solid var(--hud-line)!important;border-left:2px solid var(--hud)!important;line-height:1.7}
+
+/* ===== Agente: progresso ao vivo ===== */
+article.agent{border-left-color:#ffd166}
+article.agent label{color:#ffd166}
+article.agent ol{margin:6px 0 4px;padding-left:18px;font-family:var(--hud-mono);font-size:10px;color:#9fe3ff;line-height:1.8}
+article.agent ol li:last-child{color:#fff}
+article.agent.done{border-left-color:#5cf0a8}article.agent.done label{color:#5cf0a8}
+article.agent.error{border-left-color:#ff7b7b}article.agent.error label{color:#ff7b7b}
+.mono{font-family:var(--hud-mono);font-size:11px!important;word-break:break-all}

@@ -213,7 +213,7 @@
     try {
       const r = await invoke("chat", text);
       if (token !== generation) return;
-      message(r.say);
+      message(r.text || r.say);
       await speak(r.say, token);
     } catch (e) {
       if (token === generation) {
@@ -399,7 +399,7 @@
     $("#heading").textContent = { home: "Intelig\xEAncia com presen\xE7a.", settings: "Voc\xEA no controle.", android: "Uma presen\xE7a, dois dispositivos.", updates: "Sempre evoluindo." }[b.dataset.tab];
   });
   async function save() {
-    settings = await invoke("configure", { wake: $("#wake").checked, greet: $("#greet").checked, city: $("#city").value.trim(), provider: $("#provider").value, groqModel: $("#groq-model").value.trim(), geminiModel: $("#gemini-model").value.trim(), autoUpdate: $("#auto-update").checked, micDevice: $("#device").value, micSensitivity: $("#mic-sensitivity").value, micNoise: $("#mic-noise").checked, micEcho: $("#mic-echo").checked, micGain: $("#mic-gain").checked, continuous: $("#continuous").checked, remember: $("#remember").checked });
+    settings = await invoke("configure", { agent: $("#agent").value, agentFull: $("#agent-full").checked, quickOpen: $("#quick-open").checked, wake: $("#wake").checked, greet: $("#greet").checked, city: $("#city").value.trim(), provider: $("#provider").value, groqModel: $("#groq-model").value.trim(), geminiModel: $("#gemini-model").value.trim(), autoUpdate: $("#auto-update").checked, micDevice: $("#device").value, micSensitivity: $("#mic-sensitivity").value, micNoise: $("#mic-noise").checked, micEcho: $("#mic-echo").checked, micGain: $("#mic-gain").checked, continuous: $("#continuous").checked, remember: $("#remember").checked });
     notice("Configura\xE7\xE3o salva.");
   }
   $("#save-settings").onclick = () => save().catch((e) => notice(e.message));
@@ -456,6 +456,7 @@ V\xE1lido at\xE9 ${new Date(r.expires).toLocaleTimeString()}` : "Conex\xE3o desa
     if (e.type === "toggle-mic") toggleMic();
     if (e.type === "compact") document.body.classList.toggle("compact", e.enabled);
     if (e.type === "proactive") proactive(e.text);
+    if (e.type === "agent") agentEvent(e);
     if (e.type === "hud") window.dispatchEvent(new Event("enzo-hud"));
     if (e.type === "remote") {
       message("[Android] " + e.text, "user");
@@ -715,6 +716,69 @@ ${e.update.notes}`;
       await speak(g);
     }
     if (s.settings.wake && !active) toggleMic().catch((e) => notice("Palavra de ativa\xE7\xE3o: " + e.message));
+  }).catch(() => {
+  });
+  var agentCard = null;
+  function agentEvent(e) {
+    if (e.status === "start") {
+      agentCard = document.createElement("article");
+      agentCard.className = "assistant agent";
+      const l = document.createElement("label");
+      l.textContent = e.agent.toUpperCase() + " \xB7 TRABALHANDO";
+      const p = document.createElement("p");
+      p.textContent = e.task;
+      const steps = document.createElement("ol");
+      agentCard.append(l, p, steps);
+      $("#messages").append(agentCard);
+    } else if (agentCard && e.status === "progress") {
+      const steps = agentCard.querySelector("ol");
+      const li = document.createElement("li");
+      li.textContent = e.text;
+      steps.append(li);
+      while (steps.children.length > 8) steps.firstChild.remove();
+    } else if (agentCard && (e.status === "done" || e.status === "error")) {
+      agentCard.querySelector("label").textContent = agentCard.querySelector("label").textContent.replace("TRABALHANDO", e.status === "done" ? "CONCLU\xCDDO" : "FALHOU");
+      agentCard.classList.add(e.status);
+      if (e.text) {
+        const p = document.createElement("p");
+        p.textContent = e.text.slice(0, 3e3);
+        agentCard.append(p);
+      }
+      agentCard = null;
+    }
+    $("#messages").scrollTop = $("#messages").scrollHeight;
+  }
+  async function renderAgent() {
+    try {
+      const a = await invoke("agentStatus");
+      $("#agent").value = a.agent || "claude";
+      $("#projects-dir").textContent = a.projectsDir;
+      const av = a.available || {};
+      $("#agent-found").textContent = `No PC: Claude Code ${av.claude ? "\u2713 encontrado" : "\u2014 n\xE3o encontrado"} \xB7 OpenCode ${av.opencode ? "\u2713 encontrado" : "\u2014 n\xE3o encontrado"}`;
+    } catch (e) {
+      notice(e.message);
+    }
+  }
+  $("#pick-projects").onclick = async () => {
+    try {
+      $("#projects-dir").textContent = await invoke("pickProjects");
+    } catch (e) {
+      notice(e.message);
+    }
+  };
+  $("#agent").onchange = save;
+  $("#agent-full").onchange = async () => {
+    if ($("#agent-full").checked && !confirm("Liberar todos os comandos? O agente poder\xE1 instalar programas e apagar arquivos sem perguntar. Use s\xF3 se confiar na tarefa.")) {
+      $("#agent-full").checked = false;
+      return;
+    }
+    save();
+  };
+  $("#quick-open").onchange = save;
+  document.querySelectorAll('[data-tab="settings"]').forEach((b) => b.addEventListener("click", renderAgent));
+  invoke("status").then((s) => {
+    $("#agent-full").checked = !!s.settings.agentFull;
+    $("#quick-open").checked = s.settings.quickOpen !== false;
   }).catch(() => {
   });
 })();
