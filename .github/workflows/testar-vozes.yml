@@ -8,6 +8,7 @@ on:
       - 'core/mission-center.cjs'
       - 'core/outreach-draft.cjs'
       - 'core/windows-observer.cjs'
+      - 'core/vercel-preview.cjs'
       - 'core/intent.cjs'
       - 'core/mode-intents.cjs'
       - 'core/llm.cjs'
@@ -30,6 +31,7 @@ on:
       - 'tests/mission-center.test.cjs'
       - 'tests/outreach-draft.test.cjs'
       - 'tests/windows-observer.test.cjs'
+      - 'tests/vercel-preview.test.cjs'
       - 'tests/dashboard-metrics.test.cjs'
       - 'tests/local-calendar.test.cjs'
       - '.github/workflows/testar-vozes.yml'
@@ -53,6 +55,7 @@ jobs:
           node --check core/mission-center.cjs
           node --check core/outreach-draft.cjs
           node --check core/windows-observer.cjs
+          node --check core/vercel-preview.cjs
           node --check scripts/sign-release.cjs
           node --check core/intent.cjs
           node --check core/mode-intents.cjs
