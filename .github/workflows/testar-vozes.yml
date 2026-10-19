@@ -1,13 +1,17 @@
 name: COSMO — identidade, vozes, avatares e widgets
 on:
   push:
-    branches: ['feature/vozes-masculinas-015', 'feature/cosmo-rename', 'feature/cosmo-missoes-autonomia']
+    branches: ['feature/vozes-masculinas-015', 'feature/cosmo-rename', 'feature/cosmo-missoes-autonomia', 'feature/cosmo-017-capabilities']
     paths:
       - 'core/voice-catalog.cjs'
       - 'core/assistant-identity.cjs'
       - 'core/mission-center.cjs'
       - 'core/outreach-draft.cjs'
       - 'core/windows-observer.cjs'
+      - 'core/windows-controls.cjs'
+      - 'core/local-memory.cjs'
+      - 'core/recovery.cjs'
+      - 'core/osm-prospecting.cjs'
       - 'core/vercel-preview.cjs'
       - 'core/intent.cjs'
       - 'core/mode-intents.cjs'
@@ -31,6 +35,10 @@ on:
       - 'tests/mission-center.test.cjs'
       - 'tests/outreach-draft.test.cjs'
       - 'tests/windows-observer.test.cjs'
+      - 'tests/windows-controls.test.cjs'
+      - 'tests/local-memory.test.cjs'
+      - 'tests/recovery.test.cjs'
+      - 'tests/osm-prospecting.test.cjs'
       - 'tests/vercel-preview.test.cjs'
       - 'tests/dashboard-metrics.test.cjs'
       - 'tests/local-calendar.test.cjs'
@@ -55,6 +63,10 @@ jobs:
           node --check core/mission-center.cjs
           node --check core/outreach-draft.cjs
           node --check core/windows-observer.cjs
+          node --check core/windows-controls.cjs
+          node --check core/local-memory.cjs
+          node --check core/recovery.cjs
+          node --check core/osm-prospecting.cjs
           node --check core/vercel-preview.cjs
           node --check scripts/sign-release.cjs
           node --check core/intent.cjs

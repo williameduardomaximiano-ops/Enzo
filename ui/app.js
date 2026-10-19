@@ -18,7 +18,7 @@ async function toggleMic(){if(active){generation++;closeMic();stopAudio();await 
 processor.onaudioprocess=e=>{if(!active||busy)return;const input=new Float32Array(e.inputBuffer.getChannelData(0));const rms=Math.sqrt(input.reduce((s,x)=>s+x*x,0)/input.length);setMeter(Math.min(1,rms/.1));const thr=SENS[settings.micSensitivity]||.013;if(rms>thr){heard=true;silent=0;}else silent+=input.length;frames.push(input);samples+=input.length;if(!heard&&samples>16000){frames=frames.slice(-3);samples=frames.reduce((n,x)=>n+x.length,0);}if(heard&&(silent>16000*.85||samples>=16000*28)){const chunks=frames;frames=[];samples=0;heard=false;silent=0;transcribe(chunks);}};
 }catch(e){closeMic();notice('Microfone: '+e.message);state('idle')}}
 $('#chat-form').addEventListener('submit',e=>{e.preventDefault();const text=$('#input').value.trim();if(text){$('#input').value='';send(text)}});$('#input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('#chat-form').requestSubmit()}});document.querySelectorAll('[data-command]').forEach(b=>b.onclick=()=>send(b.dataset.command));$('#mic').onclick=()=>toggleMic().catch(e=>notice(e.message));$('#stop').onclick=emergency;$('#resume').onclick=async()=>{await invoke('resume');$('#resume').hidden=true;notice('');state('idle')};$('#compact').onclick=()=>invoke('window','compact');
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.id===b.dataset.tab));document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('selected',x===b));$('#heading').textContent=({home:'Inteligência com presença.',settings:'Você no controle.',appearance:'Escolha a aparência.',android:'Uma presença, dois dispositivos.',updates:'Sempre evoluindo.',missions:'Missões com resultados reais.'})[b.dataset.tab]});
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.id===b.dataset.tab));document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('selected',x===b));$('#heading').textContent=({home:'Inteligência com presença.',settings:'Você no controle.',appearance:'Escolha a aparência.',android:'Uma presença, dois dispositivos.',updates:'Sempre evoluindo.',memory:'Memórias sob seu controle.',missions:'Missões com resultados reais.'})[b.dataset.tab]});
 
 function applyAvatar(id){
  holo?.setPreset(id);
@@ -226,6 +226,10 @@ $('#observe-windows').onclick=async()=>{
  try{
   const r=await invoke('observeWindows');
   $('#windows-result').textContent=!r.approved?'Consulta não autorizada.':r.windows.length?r.windows.map(w=>w.title+' (processo '+w.processId+')').join('\n'):'Nenhuma janela acessível nesta sessão.';
+  const select=$('#controls-window');select.replaceChildren(new Option('Escolha uma janela',''));
+  if(r.approved)for(const w of r.windows)select.add(new Option(w.title+' (#'+w.processId+')',String(w.processId)));
+  $('#controls-list').textContent='Selecione uma janela e consulte os botões com permissão.';
+
  }catch(err){$('#windows-result').textContent='Erro: '+err.message;}
 };
 
@@ -238,3 +242,117 @@ $('#outreach-form').addEventListener('submit',async e=>{
  }catch(err){notice('WhatsApp: '+err.message);}
 });
 refreshMissions().catch(e=>notice('Missões: '+e.message));
+
+
+// Memória local: nenhum dado privado é enviado à IA por esta interface.
+async function refreshMemories(query=''){
+ const status=await invoke('memoryStatus');
+ $('#memory-status').textContent=status.available?'Memória local cifrada'+(status.readError?' — ERRO: '+status.readError:' — '+status.count+' notas.'):
+  'Criptografia do Windows indisponível. Não é seguro gravar notas.';
+ const list=$('#memory-list');list.replaceChildren();
+ if(!status.available||status.readError)return;
+ const entries=query?await invoke('memorySearch',query):await invoke('memoryList');
+ if(!entries.length){list.textContent='Nenhuma memória encontrada.';return;}
+ for(const entry of entries){
+  const row=document.createElement('article');row.className='cosmo-mission';
+  const text=document.createElement('p');text.textContent=entry.text;
+  const date=document.createElement('small');date.textContent=new Date(entry.at).toLocaleString('pt-BR');
+  const remove=document.createElement('button');remove.type='button';remove.textContent='Apagar memória';
+  remove.onclick=async()=>{try{await invoke('memoryRemove',entry.id);await refreshMemories(query);notice('Memória apagada.')}catch(e){notice('Memória: '+e.message)}};
+  row.append(text,date,remove);list.appendChild(row);
+ }
+}
+$('#memory-form').addEventListener('submit',async e=>{
+ e.preventDefault();
+ try{await invoke('memoryAdd',$('#memory-note').value);$('#memory-note').value='';await refreshMemories();notice('Memória criptografada e salva.')}
+ catch(err){notice('Memória: '+err.message);}
+});
+$('#memory-search-form').addEventListener('submit',e=>{e.preventDefault();refreshMemories($('#memory-query').value.trim()).catch(err=>notice(err.message));});
+$('#memory-reload').onclick=()=>refreshMemories().catch(e=>notice('Memória: '+e.message));
+refreshMemories().catch(e=>notice('Memória: '+e.message));
+async function refreshRecoveries(){
+ const entries=await invoke('recoveryList');const list=$('#recovery-list');list.replaceChildren();
+ if(!entries.length){list.textContent='Nenhum backup encontrado.';return;}
+ for(const e of entries){
+  const item=document.createElement('article');item.className='cosmo-mission';
+  const label=document.createElement('p');label.textContent=new Date(e.createdAt).toLocaleString('pt-BR')+' · '+e.label+' · '+e.files.length+' arquivos';
+  const btn=document.createElement('button');btn.type='button';btn.textContent='Restaurar este backup';
+  btn.onclick=async()=>{try{const r=await invoke('recoveryRestore',e.id);if(r.cancelled)notice('Restauração cancelada.');}catch(err){notice('Backup: '+err.message)}};
+  item.append(label,btn);list.appendChild(item);
+ }
+}
+$('#recovery-backup').onclick=async()=>{try{const b=await invoke('recoveryBackup');notice('Backup criado: '+b.files.length+' arquivos.');await refreshRecoveries()}catch(err){notice('Backup: '+err.message)}};
+$('#recovery-refresh').onclick=()=>refreshRecoveries().catch(e=>notice('Backup: '+e.message));
+refreshRecoveries().catch(e=>notice('Backup: '+e.message));
+
+
+$('#controls-inspect').onclick=async()=>{
+ const pid=Number($('#controls-window').value);
+ if(!Number.isSafeInteger(pid)||pid<1){notice('Selecione uma janela.');return;}
+ const list=$('#controls-list');list.replaceChildren();list.textContent='Solicitando permissão...';
+ try{
+  const result=await invoke('controlsInspect',pid);
+  list.replaceChildren();
+  if(!result.approved){list.textContent='Inspeção cancelada.';return;}
+  if(!result.controls.length){list.textContent='Nenhum botão acessível encontrado nesta janela.';return;}
+  for(const item of result.controls){
+   const row=document.createElement('article');row.className='cosmo-mission';
+   const label=document.createElement('span');label.textContent=item.name||item.automationId;
+   const btn=document.createElement('button');btn.type='button';btn.textContent='Autorizar um clique';btn.onclick=async()=>{
+    try{
+     const r=await invoke('controlsClick',pid,{name:item.name,automationId:item.automationId});
+     notice(r.clicked?'Clique executado. Para outro clique, consulte novamente.':'Clique cancelado.');
+     list.textContent='Clique concluído ou cancelado. Inspecione novamente antes de outra ação.';
+    }catch(e){notice('Controle: '+e.message);}
+   };
+   row.append(label,btn);list.appendChild(row);
+  }
+ }catch(e){list.textContent='Falha: '+e.message;}
+};
+
+// Prospecção de candidatos comerciais: a fonte é indicada e nenhum contato é feito.
+$('#prospecting-form').addEventListener('submit',async e=>{
+ e.preventDefault();
+ const city=$('#prospecting-city').value.trim(),list=$('#prospecting-results');
+ list.replaceChildren();$('#prospecting-note').textContent='Consultando dados públicos, aguarde...';
+ try{
+  const result=await invoke('prospectingRestaurants',city);
+  if(result.cancelled){$('#prospecting-note').textContent='Pesquisa cancelada.';return;}
+  $('#prospecting-note').textContent='© OpenStreetMap contributors · '+result.city+' · '+result.candidates.length+' encontrados para revisão · '+new Date(result.searchedAt).toLocaleString('pt-BR');
+  if(!result.candidates.length){list.textContent='Nenhum cadastro de restaurante encontrado nesta consulta. Tente outra cidade.';return;}
+  for(const c of result.candidates){
+   const row=document.createElement('article');row.className='cosmo-mission';
+   const name=document.createElement('strong');name.textContent=c.name;
+   const meta=document.createElement('p');meta.textContent=(c.address||'Endereço não informado')+' · '+(c.phone?'Telefone cadastrado: '+c.phone:'Telefone não informado');
+   const opportunity=document.createElement('p');opportunity.textContent=c.opportunity;
+   const source=document.createElement('small');source.textContent='Cadastro: '+c.osmUrl+' · dados não verificados';
+   row.append(name,meta,opportunity,source);
+   if(c.phone){
+    const select=document.createElement('button');select.type='button';select.textContent='Preparar contato para revisão';
+    select.onclick=()=>{
+      $('#outreach-company').value=c.name;$('#outreach-phone').value=c.phone;
+      $('#outreach-site').focus();
+      notice('Contato preenchido. Informe uma prévia HTTPS verdadeira, revise o interesse do destinatário e só então abra o rascunho.');
+    };
+    row.append(select);
+   }
+   list.appendChild(row);
+  }
+ }catch(err){$('#prospecting-note').textContent='Consulta indisponível: '+err.message;}
+});
+
+// Fonte de imagem configurável; preserva o arquivo JPEG original escolhido pelo usuário.
+async function loadGoldHologram(){
+ const uri=await invoke('hologramGet');
+ if(!uri)return;
+ if(!holo){$('#hologram-import-status').textContent='WebGL indisponível; mantenha o controle por texto.';return;}
+ await holo.setImage(uri);
+ $('#hologram-import-status').textContent='Imagem original preta e dourada carregada. O cérebro responde ao estado do microfone e da fala; a boca acompanha a amplitude do áudio (ainda não é sincronização por fonemas).';
+}
+$('#hologram-import').onclick=async()=>{
+ try{
+  const result=await invoke('hologramImport');
+  if(result.selected&&holo){await holo.setImage(result.image);$('#hologram-import-status').textContent='Imagem original carregada e guardada localmente. Movimentos suaves e intensidade cerebral ativados.';}
+ }catch(err){$('#hologram-import-status').textContent='Imagem: '+err.message;}
+};
+loadGoldHologram().catch(e=>notice('Holograma: '+e.message));

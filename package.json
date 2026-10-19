@@ -1,6 +1,6 @@
 {
   "name": "enzo-assistente",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "COSMO — assistente pessoal local para Windows",
   "main": "desktop/main.cjs",
   "author": "Ágape Studio",
@@ -28,6 +28,7 @@
     "files": [
       "desktop/**",
       "core/**",
+      "updater/**",
       "ui/**",
       "android/**",
       "package.json"
