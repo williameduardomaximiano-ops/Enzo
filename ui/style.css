@@ -52,3 +52,8 @@
 .cosmo-gold-setup p{font-size:12px;line-height:1.6;color:#ead9b5;margin:12px 0}
 .cosmo-gold-setup button{background:#61471a;border:1px solid #c69c49;color:#fff3d7}
 .cosmo-gold-setup[hidden]{display:none!important}
+
+
+/* O holograma dourado usa fundo preto; não manter auréola azul do preset antigo. */
+.presence:has(#hologram[data-hologram="cosmo-original-preto-dourado"]){background:#020202;border-color:#4c3a17}
+.presence:has(#hologram[data-hologram="cosmo-original-preto-dourado"]) .presence-footer{color:#b89b55}
