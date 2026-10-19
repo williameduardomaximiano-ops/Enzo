@@ -1,7 +1,7 @@
 const {app,BrowserWindow,ipcMain,dialog,shell,globalShortcut,session,Tray,Menu,nativeImage,safeStorage}=require('electron');
 const path=require('node:path'),fs=require('node:fs'),os=require('node:os');const {spawn}=require('node:child_process');
-const {Gate,APPS,cleanText}=require('../core/policy.cjs');const {MissionCenter}=require('../core/mission-center.cjs');const {createDraft}=require('../core/outreach-draft.cjs');const {observeWindows}=require('../core/windows-observer.cjs');const {publishPreview}=require('../core/vercel-preview.cjs');const {intent}=require('../core/intent.cjs');const {WorkMode}=require('../core/workmode.cjs');const {ModeStore,VoiceModes,parseTargets,normalizeName,LABELS}=require('../core/modes.cjs');const llm=require('../core/llm.cjs');const {Voice}=require('../core/voice.cjs');const {DashboardMetrics}=require('../core/dashboard-metrics.cjs');const {LocalCalendar}=require('../core/local-calendar.cjs');const {VOICES,TONES,voiceById,toneById,validateVoice,validateTone,matchVoiceIntent}=require('../core/voice-catalog.cjs');const {AVATARS,validateAvatar,avatarIntent,byId:avatarById}=require('../core/avatar-presets.cjs');const {GitHubPrivateUpdater}=require('../updater/github-private.cjs');const {OWNER,REPO,PUBLIC_KEY_PEM}=require('../core/update-channel.cjs');const {Companion}=require('../core/android.cjs');const vaultLib=require('../core/vault.cjs');
-let win,tray,voice,updater,companion,workMode,modeStore,voiceModes,metrics,calendar,missions,root,python,dataDir,settings,controller,busy=false,epoch=0,updateTimer,controlProcess;const gate=new Gate();const history=[];let state='idle';
+const {Gate,APPS,cleanText}=require('../core/policy.cjs');const {MissionCenter}=require('../core/mission-center.cjs');const {MemoryStore}=require('../core/local-memory.cjs');const {Recovery}=require('../core/recovery.cjs');const {createDraft}=require('../core/outreach-draft.cjs');const {observeWindows}=require('../core/windows-observer.cjs');const {publishPreview}=require('../core/vercel-preview.cjs');const {intent}=require('../core/intent.cjs');const {WorkMode}=require('../core/workmode.cjs');const {ModeStore,VoiceModes,parseTargets,normalizeName,LABELS}=require('../core/modes.cjs');const llm=require('../core/llm.cjs');const {Voice}=require('../core/voice.cjs');const {DashboardMetrics}=require('../core/dashboard-metrics.cjs');const {LocalCalendar}=require('../core/local-calendar.cjs');const {VOICES,TONES,voiceById,toneById,validateVoice,validateTone,matchVoiceIntent}=require('../core/voice-catalog.cjs');const {AVATARS,validateAvatar,avatarIntent,byId:avatarById}=require('../core/avatar-presets.cjs');const {GitHubPrivateUpdater}=require('../updater/github-private.cjs');const {OWNER,REPO,PUBLIC_KEY_PEM}=require('../core/update-channel.cjs');const {Companion}=require('../core/android.cjs');const vaultLib=require('../core/vault.cjs');
+let win,tray,voice,updater,companion,workMode,modeStore,voiceModes,metrics,calendar,missions,memories,recovery,root,python,dataDir,settings,controller,busy=false,epoch=0,updateTimer,controlProcess;const gate=new Gate();const history=[];let state='idle';
 const defaults={remember:false,continuous:false,compact:false,provider:'auto',groqModel:'openai/gpt-oss-120b',geminiModel:'gemini-3.5-flash',autoUpdate:true,micDevice:'',micSensitivity:'normal',micNoise:true,micEcho:true,micGain:true,voiceProfile:'piper-faber',voiceTone:'natural',avatarPreset:'original'};
 let apiKeys=vaultLib.emptyVault();
 function emit(type,data={}){win?.webContents.send('event',{type,...data});}
@@ -27,7 +27,7 @@ async function authorize(action){const pending=gate.propose(action);setState('pe
 }
 async function checkUpdate(){const result=await updater.check();emit('update',{update:result});audit('update-checked',{found:result?result.version:null});return result?`Versão ${result.version} disponível. ${result.notes}`:'Você está na versão mais recente publicada.';}
 function backupUserData(tag){const dest=path.join(dataDir,'updates',`backup-${tag}-${Date.now()}`);fs.mkdirSync(dest,{recursive:true});for(const f of ['settings.json','vault.enc','modes.json','history.json','audit.jsonl','calendar.json']){try{fs.copyFileSync(path.join(dataDir,f),path.join(dest,f));}catch{}}return dest;}
-async function installUpdate(){if(!updater.available)throw Error('Nenhuma atualização verificada disponível. Verifique primeiro.');const m=updater.available;const answer=await dialog.showMessageBox(win,{type:'question',message:`Instalar COSMO ${m.version}?`,detail:m.notes+'\nO COSMO será fechado após abrir o instalador. O Windows poderá pedir confirmação. Seus dados serão preservados.',buttons:['Cancelar','Instalar'],cancelId:0,defaultId:0});if(answer.response!==1)return 'Instalação cancelada.';const token=epoch;setState('updating');const file=await updater.download();if(token!==epoch)throw Error('Atualização cancelada antes da execução.');const backup=backupUserData(m.version);audit('update-backup',{dest:backup});const err=await shell.openPath(file);if(err)throw Error(err);app.quit();return 'Instalador aberto.';}
+async function installUpdate(){if(!updater.available)throw Error('Nenhuma atualização verificada disponível. Verifique primeiro.');const m=updater.available;const answer=await dialog.showMessageBox(win,{type:'question',message:`Instalar COSMO ${m.version}?`,detail:m.notes+'\nO COSMO será fechado após abrir o instalador. O Windows poderá pedir confirmação. Seus dados serão preservados.',buttons:['Cancelar','Instalar'],cancelId:0,defaultId:0});if(answer.response!==1)return 'Instalação cancelada.';const token=epoch;setState('updating');const file=await updater.download();if(token!==epoch)throw Error('Atualização cancelada antes da execução.');const backup=recovery.backup('pre-update');audit('update-backup',{id:backup.id});const err=await shell.openPath(file);if(err)throw Error(err);app.quit();return 'Instalador aberto.';}
 async function handleChat(value,source='desktop'){
  const text=cleanText(value);if(intent(text).type==='stop'){stop();return {say:'Pausado. Microfone e controle desligados.'};}
  if(gate.paused)throw Error('COSMO pausado. Clique em Retomar no computador.');if(busy)throw Error('Já estou processando um pedido. Você pode interromper.');busy=true;const token=epoch;controller=new AbortController();setState('thinking');
@@ -36,6 +36,16 @@ async function handleChat(value,source='desktop'){
  if(i.type==='avatar_select'){const preset=avatarById(validateAvatar(i.avatar));settings.avatarPreset=preset.id;saveSettings();emit('avatar',{avatar:preset.id});result={say:'Aparência '+preset.name+' selecionada e salva.'};}
  else if(i.type==='voice_select'){const profile=voiceById(validateVoice(i.voice));settings.voiceProfile=profile.id;saveSettings();result={say:'Voz '+profile.name+' selecionada. Você pode testá-la em Configuração, na seção Voz Neural.'};}
  else if(i.type==='voice_tone'){const tone=toneById(validateTone(i.tone));settings.voiceTone=tone.id;saveSettings();result={say:'Estilo de voz '+tone.name+' salvo.'};}
+ else if(i.type==='memory_add'){
+   if(source!=='desktop')throw Error('Salvar memórias exige o computador.');
+   if(!memories)throw Error('Memória protegida indisponível neste Windows.');
+   const m=memories.add(i.text);audit('memory-added',{id:m.id});
+   result={say:'Memória salva de forma criptografada neste computador. Você pode vê-la ou apagá-la na aba Memória.'};
+ }
+ else if(i.type==='memory_search'){
+   if(!memories)throw Error('Memória protegida indisponível neste Windows.');
+   const items=memories.search(i.query);result={say:items.length?'Na memória local encontrei: '+items.map(x=>x.text).join(' | ').slice(0,1500):'Não encontrei essa informação na memória local.'};
+ }
  else if(i.type==='mission_create'){if(source!=='desktop')throw Error('Missões devem ser criadas diretamente no computador.');const m=missions.create(i.goal);emit('mission',{id:m.id,status:m.status});result={say:'Missão criada: '+m.kind+'. Abra a aba Missões para revisar e autorizar o OpenCode. Nada foi executado ainda.'};}
  else if(i.type==='mission_list'){const entries=missions.list().slice(0,5);result={say:entries.length?'Últimas missões: '+entries.map(m=>m.kind+' ('+m.status+')').join('; '):'Nenhuma missão criada ainda.'};}
  else if(i.type==='time')result={say:`Agora são ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}.`};
@@ -82,7 +92,7 @@ async function handleChat(value,source='desktop'){
 function stop(){epoch++;try{workMode?.end();voiceModes?.stop();missions?.stop();}catch{}controller?.abort();controlProcess?.kill();voice?.stop();busy=false;gate.pause();setState('paused');emit('stop');audit('paused');}
 function ipc(name,fn){ipcMain.handle(name,async(e,...args)=>{if(e.sender!==win.webContents||e.senderFrame!==win.webContents.mainFrame)throw Error('Origem IPC recusada.');try{return {ok:true,data:await fn(...args)}}catch(error){return {ok:false,error:error.message}}});}
 const single=app.requestSingleInstanceLock();if(!single)app.quit();else app.whenReady().then(()=>{
- dataDir=app.getPath('userData');metrics=new DashboardMetrics();calendar=new LocalCalendar(dataDir);missions=new MissionCenter(dataDir);workMode=new WorkMode();modeStore=new ModeStore(dataDir);voiceModes=new VoiceModes(modeStore);root=app.isPackaged?process.resourcesPath:path.join(__dirname,'..');const runtime=app.isPackaged?path.join(root,'runtime'):path.join(root,'resources');python=process.platform==='win32'?path.join(runtime,'python','python.exe'):(process.env.ENZO_PYTHON||'python3');
+ dataDir=app.getPath('userData');metrics=new DashboardMetrics();calendar=new LocalCalendar(dataDir);missions=new MissionCenter(dataDir);recovery=new Recovery(dataDir);if(safeStorage.isEncryptionAvailable())memories=new MemoryStore(dataDir,{encrypt:s=>safeStorage.encryptString(s),decrypt:b=>safeStorage.decryptString(b)});workMode=new WorkMode();modeStore=new ModeStore(dataDir);voiceModes=new VoiceModes(modeStore);root=app.isPackaged?process.resourcesPath:path.join(__dirname,'..');const runtime=app.isPackaged?path.join(root,'runtime'):path.join(root,'resources');python=process.platform==='win32'?path.join(runtime,'python','python.exe'):(process.env.ENZO_PYTHON||'python3');
  try{settings={...defaults,...JSON.parse(fs.readFileSync(path.join(dataDir,'settings.json'),'utf8'))}}catch{settings={...defaults}};
   loadVault();
   try{if(!vaultLib.ORDER.includes(settings.provider)){settings.provider='auto';saveSettings();}}catch{}
@@ -128,6 +138,26 @@ const single=app.requestSingleInstanceLock();if(!single)app.quit();else app.when
    const url=missions.get(id).previewUrl;
    if(typeof url!=='string'||!/^https:\/\/[a-z0-9-]+\.vercel\.app\/?$/i.test(url))throw Error('Preview Vercel ainda não foi publicada.');
    await shell.openExternal(url);return true;
+ });
+ ipc('memory-status',()=>({available:!!memories,readError:memories?.readError||null,count:memories?.list().length||0}));
+ ipc('memory-list',()=>{if(!memories)throw Error('Criptografia Windows indisponível.');return memories.list();});
+ ipc('memory-add',note=>{if(gate.paused)throw Error('COSMO pausado.');if(!memories)throw Error('Criptografia Windows indisponível.');const result=memories.add(note);audit('memory-added',{id:result.id});return result;});
+ ipc('memory-search',query=>{if(!memories)throw Error('Criptografia Windows indisponível.');return memories.search(query);});
+ ipc('memory-remove',id=>{if(gate.paused)throw Error('COSMO pausado.');if(!memories)throw Error('Criptografia Windows indisponível.');const r=memories.remove(id);audit('memory-removed',{id});return r;});
+ ipc('recovery-list',()=>recovery.list());
+ ipc('recovery-backup',()=>{
+   if(gate.paused)throw Error('COSMO pausado.');
+   const r=recovery.backup('manual');audit('backup-created',{id:r.id});return r;
+ });
+ ipc('recovery-restore',async id=>{
+   if(gate.paused)throw Error('COSMO pausado.');
+   recovery.verify(id);
+   const response=await dialog.showMessageBox(win,{type:'warning',title:'COSMO • Restauração',message:'Restaurar dados locais deste backup?',detail:'Uma cópia de segurança dos dados atuais será criada primeiro. Configurações, chaves, histórico e memória poderão ser substituídos pelos dados anteriores. O aplicativo será reiniciado.',buttons:['Cancelar','Restaurar e reiniciar'],cancelId:0,defaultId:0,noLink:true});
+   if(response.response!==1)return {restored:[],cancelled:true};
+   const result=recovery.restore(id);
+   audit('backup-restored',{id,safetyBackup:result.safetyBackup});
+   app.relaunch();app.quit();
+   return result;
  });
  ipc('missions-list',()=>missions.list());
  ipc('missions-create',goal=>{if(gate.paused)throw Error('COSMO pausado. Retome primeiro.');const m=missions.create(goal);audit('mission-created',{id:m.id,kind:m.kind});emit('mission',{id:m.id,status:m.status});return m;});
