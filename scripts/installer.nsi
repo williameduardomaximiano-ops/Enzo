@@ -52,7 +52,7 @@ Section "Uninstall"
  Delete "$SMPROGRAMS\ENZO\ENZO.lnk"
  RMDir "$SMPROGRAMS\ENZO"
  ; Remove only files belonging to the app. Never delete user data or arbitrary folders.
- !include "${PROJECT_DIR}/scripts/uninstall-files.nsh"
+ !include "${PROJECT_DIR}\scripts\uninstall-files.nsh"
  Delete "$INSTDIR\Desinstalar COSMO.exe"
  Delete "$INSTDIR\Desinstalar ENZO.exe"
  Delete "$INSTDIR\ENZO.exe"
