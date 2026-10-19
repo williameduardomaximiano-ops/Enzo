@@ -18,7 +18,7 @@ async function toggleMic(){if(active){generation++;closeMic();stopAudio();await 
 processor.onaudioprocess=e=>{if(!active||busy)return;const input=new Float32Array(e.inputBuffer.getChannelData(0));const rms=Math.sqrt(input.reduce((s,x)=>s+x*x,0)/input.length);setMeter(Math.min(1,rms/.1));const thr=SENS[settings.micSensitivity]||.013;if(rms>thr){heard=true;silent=0;}else silent+=input.length;frames.push(input);samples+=input.length;if(!heard&&samples>16000){frames=frames.slice(-3);samples=frames.reduce((n,x)=>n+x.length,0);}if(heard&&(silent>16000*.85||samples>=16000*28)){const chunks=frames;frames=[];samples=0;heard=false;silent=0;transcribe(chunks);}};
 }catch(e){closeMic();notice('Microfone: '+e.message);state('idle')}}
 $('#chat-form').addEventListener('submit',e=>{e.preventDefault();const text=$('#input').value.trim();if(text){$('#input').value='';send(text)}});$('#input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('#chat-form').requestSubmit()}});document.querySelectorAll('[data-command]').forEach(b=>b.onclick=()=>send(b.dataset.command));$('#mic').onclick=()=>toggleMic().catch(e=>notice(e.message));$('#stop').onclick=emergency;$('#resume').onclick=async()=>{await invoke('resume');$('#resume').hidden=true;notice('');state('idle')};$('#compact').onclick=()=>invoke('window','compact');
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.id===b.dataset.tab));document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('selected',x===b));$('#heading').textContent=({home:'Inteligência com presença.',settings:'Você no controle.',appearance:'Escolha a aparência.',android:'Uma presença, dois dispositivos.',updates:'Sempre evoluindo.',missions:'Missões com resultados reais.'})[b.dataset.tab]});
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.id===b.dataset.tab));document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('selected',x===b));$('#heading').textContent=({home:'Inteligência com presença.',settings:'Você no controle.',appearance:'Escolha a aparência.',android:'Uma presença, dois dispositivos.',updates:'Sempre evoluindo.',memory:'Memórias sob seu controle.',missions:'Missões com resultados reais.'})[b.dataset.tab]});
 
 function applyAvatar(id){
  holo?.setPreset(id);
@@ -238,3 +238,45 @@ $('#outreach-form').addEventListener('submit',async e=>{
  }catch(err){notice('WhatsApp: '+err.message);}
 });
 refreshMissions().catch(e=>notice('Missões: '+e.message));
+
+
+// Memória local: nenhum dado privado é enviado à IA por esta interface.
+async function refreshMemories(query=''){
+ const status=await invoke('memoryStatus');
+ $('#memory-status').textContent=status.available?'Memória local cifrada'+(status.readError?' — ERRO: '+status.readError:' — '+status.count+' notas.'):
+  'Criptografia do Windows indisponível. Não é seguro gravar notas.';
+ const list=$('#memory-list');list.replaceChildren();
+ if(!status.available||status.readError)return;
+ const entries=query?await invoke('memorySearch',query):await invoke('memoryList');
+ if(!entries.length){list.textContent='Nenhuma memória encontrada.';return;}
+ for(const entry of entries){
+  const row=document.createElement('article');row.className='cosmo-mission';
+  const text=document.createElement('p');text.textContent=entry.text;
+  const date=document.createElement('small');date.textContent=new Date(entry.at).toLocaleString('pt-BR');
+  const remove=document.createElement('button');remove.type='button';remove.textContent='Apagar memória';
+  remove.onclick=async()=>{try{await invoke('memoryRemove',entry.id);await refreshMemories(query);notice('Memória apagada.')}catch(e){notice('Memória: '+e.message)}};
+  row.append(text,date,remove);list.appendChild(row);
+ }
+}
+$('#memory-form').addEventListener('submit',async e=>{
+ e.preventDefault();
+ try{await invoke('memoryAdd',$('#memory-note').value);$('#memory-note').value='';await refreshMemories();notice('Memória criptografada e salva.')}
+ catch(err){notice('Memória: '+err.message);}
+});
+$('#memory-search-form').addEventListener('submit',e=>{e.preventDefault();refreshMemories($('#memory-query').value.trim()).catch(err=>notice(err.message));});
+$('#memory-reload').onclick=()=>refreshMemories().catch(e=>notice('Memória: '+e.message));
+refreshMemories().catch(e=>notice('Memória: '+e.message));
+async function refreshRecoveries(){
+ const entries=await invoke('recoveryList');const list=$('#recovery-list');list.replaceChildren();
+ if(!entries.length){list.textContent='Nenhum backup encontrado.';return;}
+ for(const e of entries){
+  const item=document.createElement('article');item.className='cosmo-mission';
+  const label=document.createElement('p');label.textContent=new Date(e.createdAt).toLocaleString('pt-BR')+' · '+e.label+' · '+e.files.length+' arquivos';
+  const btn=document.createElement('button');btn.type='button';btn.textContent='Restaurar este backup';
+  btn.onclick=async()=>{try{const r=await invoke('recoveryRestore',e.id);if(r.cancelled)notice('Restauração cancelada.');}catch(err){notice('Backup: '+err.message)}};
+  item.append(label,btn);list.appendChild(item);
+ }
+}
+$('#recovery-backup').onclick=async()=>{try{const b=await invoke('recoveryBackup');notice('Backup criado: '+b.files.length+' arquivos.');await refreshRecoveries()}catch(err){notice('Backup: '+err.message)}};
+$('#recovery-refresh').onclick=()=>refreshRecoveries().catch(e=>notice('Backup: '+e.message));
+refreshRecoveries().catch(e=>notice('Backup: '+e.message));
