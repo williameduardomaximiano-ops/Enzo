@@ -1,7 +1,8 @@
 'use strict';
+const {stripInvocation}=require('./assistant-identity.cjs');
 /** Lista fixa de vozes autorizadas. Nunca converter nomes recebidos em comandos ou URLs. */
 const VOICES=Object.freeze([
-  {id:'piper-faber',name:'Faber (voz atual)',engine:'piper',locale:'pt-BR',note:'Voz brasileira original do ENZO'},
+  {id:'piper-faber',name:'Faber (voz atual)',engine:'piper',locale:'pt-BR',note:'Voz brasileira original do COSMO'},
   ...['M1','M2','M3','M4','M5'].map(name=>({id:'supertonic-'+name.toLowerCase(),name:'Supertonic '+name,engine:'supertonic',locale:'pt',note:'Português; verificar sotaque brasileiro'})),
   {id:'pocket-rafael',name:'PocketTTS Rafael',engine:'pocket',locale:'pt',note:'Português; verificar sotaque brasileiro'},
   ...['George','Michael','Paul'].map(name=>({id:'pocket-'+name.toLowerCase(),name:'PocketTTS '+name,engine:'pocket',locale:'en',note:'Referência em inglês; pronúncia pt-BR não garantida'})),
@@ -18,7 +19,7 @@ function validateVoice(id){if(typeof id!=='string'||!voiceById(id))throw Error('
 function validateTone(id){if(typeof id!=='string'||!toneById(id))throw Error('Estilo de voz desconhecido');return id}
 function matchVoiceIntent(text){
  if(typeof text!=='string')return null;
- const s=text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.!?]/g,'').replace(/^\s*enzo[, ]*/,'').trim();
+ const s=stripInvocation(text).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.!?]/g,'').trim();
  let m=s.match(/^(?:(?:mude|mudar|troque|trocar|altere|alterar|coloque|use|usar)(?: a|minha)? voz (?:para |pra |pro |do |da )?|(?:escolha |selecione )?(?:a )?voz )(?:(supertonic|pockettts|pocket|kitten(?:tts)?) )?(m[1-5]|faber|rafael|george|michael|paul|[2-5](?: masculina)?)$/);
  if(m){
   const id=m[2];
