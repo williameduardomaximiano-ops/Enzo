@@ -57,3 +57,8 @@
 /* O holograma dourado usa fundo preto; não manter auréola azul do preset antigo. */
 .presence:has(#hologram[data-hologram="cosmo-original-preto-dourado"]){background:#020202;border-color:#4c3a17}
 .presence:has(#hologram[data-hologram="cosmo-original-preto-dourado"]) .presence-footer{color:#b89b55}
+
+
+/* Não mostrar a antiga cabeça azul se ainda falta importar a imagem aprovada. */
+body:not([data-gold-photo="loaded"]) .presence #hologram{opacity:0}
+body:not([data-gold-photo="loaded"]) .presence{background:#030303}
