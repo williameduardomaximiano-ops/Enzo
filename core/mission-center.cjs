@@ -61,7 +61,7 @@ class MissionCenter {
    if(!Array.isArray(raw)||raw.length>MAX_MISSIONS)throw Error('Índice de missões inválido.');
    this.items=raw.map(x=>{
     if(!x||typeof x.id!=='string'||!/^[a-f\d-]{36}$/.test(x.id)||typeof x.goal!=='string'||!CATEGORIES.includes(x.kind))throw Error('Missão inválida.');
-    return {...x,status:x.status==='executando'?'interrompida':x.status};
+    return {...x,status:['executando','publicando'].includes(x.status)?'interrompida':x.status};
    });
   }catch(e){if(e.code==='ENOENT')return;throw Error('Não foi possível abrir as missões. Preserve o arquivo '+this.file+': '+e.message);}
  }
@@ -99,7 +99,7 @@ class MissionCenter {
   */
  async run(id,{approve,notify=()=>{},cli}={}){
   const item=this.get(id);if(this.active)throw Error('Já existe uma missão em execução.');
-  if(!['rascunho','falhou','interrompida','revisao'].includes(item.status))throw Error('Missão não está pronta para executar.');
+  if(!['rascunho','falhou','interrompida','revisao','previa'].includes(item.status))throw Error('Missão não está pronta para executar.');
   if(typeof approve!=='function')throw Error('Confirmação humana obrigatória.');
   const folder=this.folder(id);const executable=cli||resolveCLI();
   const confirmed=await approve({goal:item.goal,kind:item.kind,folder,executable});
@@ -113,6 +113,7 @@ class MissionCenter {
    child=this.launcher(executable,['run','--agent','build',prompt],{cwd:folder,windowsHide:true,stdio:['ignore','pipe','pipe'],shell:false,env:sanitizedEnvironment(process.env)});
   }catch(e){this.fs.closeSync(logFd);this.update(item,'falhou',e.message);throw e;}
   this.active={id,child,stopRequested:false};
+  item.previewUrl=null;
   this.update(item,'executando');notify({id,status:item.status});
   let written=0;const cap=200000;
   const append=chunk=>{
