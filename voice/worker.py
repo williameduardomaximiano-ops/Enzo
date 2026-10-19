@@ -89,7 +89,7 @@ def execute(req):
         if recognizer is None:
             from faster_whisper import WhisperModel
             recognizer=WhisperModel(str(ROOT/'whisper-base'),device='cpu',compute_type='int8',cpu_threads=max(1,min(4,os.cpu_count() or 2)),local_files_only=True)
-        segments,_=recognizer.transcribe(pcm,language='pt',beam_size=1,vad_filter=True,condition_on_previous_text=False,initial_prompt='Conversa em português brasileiro. Nomes: Enzo e William.')
+        segments,_=recognizer.transcribe(pcm,language='pt',beam_size=1,vad_filter=True,condition_on_previous_text=False,initial_prompt='Conversa em português brasileiro. Nome do assistente: Cosmo. Nome anterior: Enzo.')
         return {'text':' '.join(s.text.strip() for s in segments).strip()}
     raise ValueError('Operação desconhecida')
 
