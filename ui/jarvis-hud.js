@@ -3,7 +3,9 @@
   const $=id=>document.getElementById(id);
   const pad=n=>String(n).padStart(2,'0');
   function tick(){const d=new Date();$('hud-clock').textContent=`${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;$('hud-date').textContent=d.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'}).toUpperCase()}
-  tick();setInterval(tick,1000);
+  const start=Date.now();
+  function uptime(){const s=Math.floor((Date.now()-start)/1000),el=$('hud-uptime');if(el)el.textContent=`${pad(Math.floor(s/60))}:${pad(s%60)}`}
+  tick();uptime();setInterval(()=>{tick();uptime()},1000);
   const label=$('state-label'),state=$('hud-state');
   if(label&&state){const sync=()=>{state.textContent=label.textContent};new MutationObserver(sync).observe(label,{childList:true,characterData:true,subtree:true});sync()}
   const boot=$('boot'),log=$('boot-log');if(!boot)return;
