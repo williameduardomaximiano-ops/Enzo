@@ -25,7 +25,16 @@
     <p class="muted">Cada missão recebe pasta própria e arquivo BRIEFING.md. OpenCode CLI deve estar instalado no Windows. Execução gera log e termina em revisão; publicar exige etapa posterior.</p>
   </article>
   <article class="card wide"><span class="eyebrow">HISTÓRICO VERIFICÁVEL</span><h2>Minhas missões</h2><div id="mission-list" class="cosmo-mission-list" aria-live="polite">Carregando missões...</div><pre id="mission-log" class="cosmo-mission-log" aria-live="polite">Sem execução nesta sessão.</pre></article>
-</section>
+<article class="card wide">
+  <span class="eyebrow">PROSPECÇÃO RESPONSÁVEL</span><h2>Mostrar prévia a uma empresa</h2>
+  <p>Prepare a primeira mensagem personalizada para um potencial cliente. O COSMO abre apenas o rascunho no WhatsApp; você revisa e decide se envia. Use contatos obtidos legitimamente e respeite a preferência de quem não quer receber propostas.</p>
+  <form id="outreach-form">
+    <label for="outreach-company">Nome da empresa</label><input id="outreach-company" type="text" maxlength="100" required>
+    <label for="outreach-phone">WhatsApp com DDI + DDD</label><input id="outreach-phone" type="tel" placeholder="5541999999999" maxlength="24" required>
+    <label for="outreach-site">Link HTTPS da prévia publicada</label><input id="outreach-site" type="url" placeholder="https://exemplo.vercel.app" maxlength="1000" required>
+    <div class="button-row"><button class="primary" type="submit">Revisar mensagem e abrir WhatsApp</button></div>
+  </form>
+ </article></section>
 <section id="android" class="tab"><article class="card wide"><span class="eyebrow">CONEXÃO LOCAL</span><h2>COSMO, também no seu Android.</h2><p>Envie mensagens pelo navegador do celular. Use o ditado do teclado Android para falar. As respostas aparecem no celular e no computador. O computador executa o processamento.</p><p>Conecte os dois dispositivos ao mesmo Wi-Fi privado. A conexão HTTP local não deve ser usada em redes públicas ou para dados sensíveis.</p><div class="button-row"><button id="pair" class="primary">Conectar Android</button><button id="unpair">Desconectar todos</button></div><pre id="pair-info">Conexão desativada.</pre><p class="muted">Código válido por 2 minutos. Sessão de 1 hora. Toda ação de controle exige aprovação no PC. Não há controle remoto fora da rede local nesta versão.</p></article></section>
 <section id="updates" class="tab"><article class="card wide"><span class="eyebrow">EVOLUÇÃO DO COSMO</span><h2>Atualizações com sua autorização.</h2><p>Diga “COSMO, buscar atualizações”, “ler novidades”, “baixar atualização” ou “instalar atualização”. O COSMO verifica assinatura e integridade antes de abrir o instalador.</p><label class="toggle"><input type="checkbox" id="auto-update"> Verificar atualizações ao iniciar e a cada 6 horas</label><div class="button-row"><button id="check-update" class="primary">Buscar atualizações</button><button id="install-update">Instalar atualização</button></div><pre id="update-info">Nenhuma atualização consultada.</pre><p class="muted">A instalação pede confirmação no computador. O Windows pode exigir uma interação adicional. A verificação automática depende de um canal de distribuição publicado.</p></article></section>
 <div id="notice" role="status" aria-live="polite"></div><footer><span>COSMO <span id="version"></span> · Windows x64</span><span>Autonomia supervisionada <i>●</i></span></footer></main><script src="bundle.js"></script></body></html>
