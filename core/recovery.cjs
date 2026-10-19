@@ -1,7 +1,7 @@
 'use strict';
 /** Backups verificados somente de arquivos explícitos de dados do usuário. */
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const FILES=Object.freeze(['settings.json','vault.enc','modes.json','history.json','calendar.json','memory-v1.enc']);
+const FILES=Object.freeze(['settings.json','vault.enc','modes.json','history.json','calendar.json','memory-v1.enc','cosmo-hologram.jpg']);
 const checksum=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 class Recovery {
  constructor(dataDir,{fsApi=fs}={}){
