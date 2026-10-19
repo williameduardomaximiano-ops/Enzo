@@ -1,11 +1,14 @@
-import sys, unittest
+import sys, unittest, runpy, subprocess
 from pathlib import Path
 from types import SimpleNamespace
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'voice'))
-from transcript_quality import accepted_text
+WORKER=Path(__file__).resolve().parents[1]/'voice'/'worker.py'
+accepted_text=runpy.run_path(str(WORKER))['accepted_text']
 def segment(text='Abra a calculadora.',**kwargs):
     return SimpleNamespace(text=text,**dict(dict(avg_logprob=-.2,no_speech_prob=.01,compression_ratio=1.1),**kwargs))
 class TranscriptQualityTests(unittest.TestCase):
+    def test_embedded_isolated_search_path(self):
+        code="import runpy,sys; from types import SimpleNamespace; w=runpy.run_path(sys.argv[1]); assert w['accepted_text']([SimpleNamespace(text='Oi',avg_logprob=-.2,no_speech_prob=.01,compression_ratio=1)])=='Oi'"
+        subprocess.run([sys.executable,'-I','-c',code,str(WORKER)],check=True,cwd=WORKER.parent.parent)
     def test_clear_portuguese(self):
         self.assertEqual(accepted_text([segment()]),'Abra a calculadora.')
     def test_silence(self):

@@ -11,6 +11,20 @@ ALLOWED_POCKET={'pocket-rafael':('portuguese','rafael'),'pocket-george':('englis
 ALLOWED_KITTEN={f'kitten-{i}-m':f'expr-voice-{i}-m' for i in range(2,6)}
 SPEED={'natural':1.0,'profissional':0.93,'descontraido':1.12}
 
+def accepted_text(segments):
+    """Reject uncertain decoding without importing a sibling module.
+
+    The embedded Windows Python uses an isolated _pth search path.
+    """
+    parts=[]
+    for segment in segments:
+        if segment.avg_logprob < -1.0 or segment.no_speech_prob > .6 or segment.compression_ratio > 2.4:
+            return ''
+        text=segment.text.strip()
+        if text:
+            parts.append(text)
+    return ' '.join(parts).strip()
+
 def pcm_wav(audio,rate):
     import numpy as np
     mono=np.asarray(audio,dtype=np.float32).reshape(-1)
@@ -90,7 +104,6 @@ def execute(req):
             from faster_whisper import WhisperModel
             recognizer=WhisperModel(str(ROOT/'whisper-base'),device='cpu',compute_type='int8',cpu_threads=max(1,min(4,os.cpu_count() or 2)),local_files_only=True)
         segments,_=recognizer.transcribe(pcm,language='pt',beam_size=5,temperature=0.0,vad_filter=True,vad_parameters={'min_silence_duration_ms':700,'speech_pad_ms':300},condition_on_previous_text=False)
-        from transcript_quality import accepted_text
         text=accepted_text(segments)
         return {'text':text,'retry':not bool(text)}
     raise ValueError('Operação desconhecida')
@@ -104,3 +117,5 @@ if __name__=='__main__':
             print(json.dumps({'id':req.get('id'),'result':result,'ms':round((time.monotonic()-start)*1000)},ensure_ascii=True),flush=True)
         except Exception as e:
             print(json.dumps({'id':req.get('id'),'error':str(e)[:300]},ensure_ascii=True),flush=True)
+
+
