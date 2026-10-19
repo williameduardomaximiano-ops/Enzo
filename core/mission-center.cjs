@@ -70,7 +70,7 @@ class MissionCenter {
   this.fs.writeFileSync(temp,JSON.stringify(this.items,null,2),{flag:'wx',mode:0o600});
   try{this.fs.renameSync(temp,this.file)}catch(e){this.fs.rmSync(temp,{force:true});throw e;}
  }
- list(){return this.items.map(({id,goal,kind,status,createdAt,updatedAt,folder,lastError})=>({id,goal,kind,status,createdAt,updatedAt,folder,lastError})).reverse();}
+ list(){return this.items.map(({id,goal,kind,status,createdAt,updatedAt,folder,lastError,previewUrl})=>({id,goal,kind,status,createdAt,updatedAt,folder,lastError,previewUrl:previewUrl||null})).reverse();}
  get(id){if(typeof id!=='string'||!/^[a-f\d-]{36}$/.test(id))throw Error('ID inválido.');const m=this.items.find(x=>x.id===id);if(!m)throw Error('Missão não encontrada.');return m;}
  folder(id){return path.join(this.dir,this.get(id).id);}
  create(input){
