@@ -341,7 +341,7 @@
         samples = 0;
         heard = false;
         silent = 0;
-        if (!settings.continuous && !settings.wake) closeMic();
+        if (settings.keepMicOn === false && !settings.wake) closeMic();
         state(active ? "listening" : "idle");
       }
     }
@@ -440,7 +440,7 @@
     $("#heading").textContent = { home: "Intelig\xEAncia com presen\xE7a.", settings: "Voc\xEA no controle.", android: "Uma presen\xE7a, dois dispositivos.", updates: "Sempre evoluindo." }[b.dataset.tab];
   });
   async function save() {
-    settings = await invoke("configure", { autostart: $("#autostart").checked, keepInTray: $("#keep-tray").checked, briefing: $("#briefing").checked, confirmClicks: $("#confirm-clicks").checked, claudeModel: $("#claude-model").value.trim(), agentModel: $("#agent-model").value.trim(), brain: $("#brain").checked, agent: $("#agent").value, agentFull: $("#agent-full").checked, quickOpen: $("#quick-open").checked, wake: $("#wake").checked, greet: $("#greet").checked, city: $("#city").value.trim(), provider: $("#provider").value, groqModel: $("#groq-model").value.trim(), geminiModel: $("#gemini-model").value.trim(), autoUpdate: $("#auto-update").checked, micDevice: $("#device").value, micSensitivity: $("#mic-sensitivity").value, micNoise: $("#mic-noise").checked, micEcho: $("#mic-echo").checked, micGain: $("#mic-gain").checked, continuous: $("#continuous").checked, remember: $("#remember").checked });
+    settings = await invoke("configure", { autostart: $("#autostart").checked, keepInTray: $("#keep-tray").checked, briefing: $("#briefing").checked, confirmClicks: $("#confirm-clicks").checked, claudeModel: $("#claude-model").value.trim(), agentModel: $("#agent-model").value.trim(), brain: $("#brain").checked, agent: $("#agent").value, agentFull: $("#agent-full").checked, quickOpen: $("#quick-open").checked, wake: $("#wake").checked, greet: $("#greet").checked, city: $("#city").value.trim(), provider: $("#provider").value, groqModel: $("#groq-model").value.trim(), geminiModel: $("#gemini-model").value.trim(), autoUpdate: $("#auto-update").checked, micDevice: $("#device").value, micSensitivity: $("#mic-sensitivity").value, micNoise: $("#mic-noise").checked, micEcho: $("#mic-echo").checked, micGain: $("#mic-gain").checked, keepMicOn: $("#continuous").checked, remember: $("#remember").checked });
     notice("Configura\xE7\xE3o salva.");
   }
   $("#save-settings").onclick = () => save().catch((e) => notice(e.message));
@@ -516,7 +516,7 @@ ${e.update.notes}`;
     $("#provider").value = settings.provider || "auto";
     $("#groq-model").value = settings.groqModel || "openai/gpt-oss-120b";
     $("#gemini-model").value = settings.geminiModel || "gemini-3.5-flash";
-    $("#continuous").checked = settings.continuous;
+    $("#continuous").checked = settings.keepMicOn !== false;
     $("#remember").checked = settings.remember;
     $("#auto-update").checked = settings.autoUpdate !== false;
     $("#device").value = settings.micDevice || "";
