@@ -25,11 +25,11 @@ async function authorize(action){const pending=gate.propose(action);setState('pe
  await new Promise((resolve,reject)=>{const p=spawn(exe,[],{detached:true,stdio:'ignore',windowsHide:false});p.once('error',reject);p.once('spawn',()=>{p.unref();resolve()})});
  }else if(allowed.type==='open_url'){await shell.openExternal(allowed.url);}else if(allowed.type==='media'){await runMedia(allowed.key);}else if(allowed.type==='agent'){return startAgent({task:allowed.task,dir:settings.lastProject||projectsDir()});}else{
  if(process.platform!=='win32')throw Error('Este comando exige Windows.');emit('notice',{text:'Selecione a janela de destino. Ação em 5 segundos. Ctrl+Alt+Esc cancela.'});win.minimize();const token=epoch;await new Promise(r=>setTimeout(r,5000));if(epoch!==token||gate.paused)throw Error('Ação interrompida.');
- await new Promise((resolve,reject)=>{const p=spawn(python,['-u',path.join(root,'voice','windows_control.py')],{windowsHide:true,stdio:['pipe','pipe','pipe']});controlProcess=p;let out='';p.stdout.on('data',x=>out+=x);p.on('error',reject);p.on('exit',code=>{controlProcess=null;code===0?resolve():reject(Error('Ação interrompida ou falhou. '+out.slice(0,300)))});p.stdin.end(JSON.stringify(allowed));});
+ await new Promise((resolve,reject)=>{const p=spawn(python,['-u',path.join(root,'voice','windows_control.py')],{windowsHide:true,stdio:['pipe','pipe','pipe']});controlProcess=p;let out='';p.stdout.on('data',x=>out+=x);p.on('error',reject);p.on('exit',code=>{controlProcess=null;code===0?resolve():reject(Error('Ação interrompida ou falhou. '+out.slice(0,300)))});p.stdin.on('error',()=>{});p.stdin.end(JSON.stringify(allowed));});
  }
  audit('action-completed',{action:allowed.type});return 'Comando executado.';
 }
-function runControl(payload,what='controle do Windows'){if(process.platform!=='win32')return Promise.reject(Error(`O ${what} exige Windows.`));return new Promise((resolve,reject)=>{const p=spawn(python,['-u',path.join(root,'voice','windows_control.py')],{windowsHide:true,stdio:['pipe','pipe','pipe']});let out='';p.stdout.on('data',x=>out+=x);p.on('error',reject);p.on('exit',code=>code===0?resolve():reject(Error(`Falha no ${what}. `+out.slice(0,200))));p.stdin.end(JSON.stringify(payload));});}
+function runControl(payload,what='controle do Windows'){if(process.platform!=='win32')return Promise.reject(Error(`O ${what} exige Windows.`));return new Promise((resolve,reject)=>{const p=spawn(python,['-u',path.join(root,'voice','windows_control.py')],{windowsHide:true,stdio:['pipe','pipe','pipe']});let out='';p.stdout.on('data',x=>out+=x);p.on('error',reject);p.on('exit',code=>code===0?resolve():reject(Error(`Falha no ${what}. `+out.slice(0,200))));p.stdin.on('error',()=>{});p.stdin.end(JSON.stringify(payload));});}
 function runMedia(key){return runControl({type:'media',key},'controle de mídia');}
 function projectsDir(){return settings.projectsDir||path.join(app.getPath('documents'),'COSMO Projetos');}
 function freshDir(name){const base=projectsDir();let dir=path.join(base,name),n=2;while(fs.existsSync(dir))dir=path.join(base,`${name}-${n++}`);return dir;}
@@ -235,6 +235,9 @@ async function handleChat(value,source='desktop'){
 }
 function stop(){epoch++;try{workMode?.end();voiceModes?.stop();}catch{}controller?.abort();controlProcess?.kill();agentRunner.stop();voice?.stop();busy=false;gate.pause();setState('paused');emit('stop');audit('paused');}
 function ipc(name,fn){ipcMain.handle(name,async(e,...args)=>{if(e.sender!==win.webContents||e.senderFrame!==win.webContents.mainFrame)throw Error('Origem IPC recusada.');try{return {ok:true,data:await fn(...args)}}catch(error){return {ok:false,error:error.message}}});}
+// Rede de segurança: um erro inesperado vira aviso e registro, sem a caixa de erro do Electron nem derrubar o COSMO.
+process.on('uncaughtException',e=>{console.error(e);try{audit('erro-interno',{message:String(e?.message||e).slice(0,300)})}catch{}try{emit('notice',{text:'Erro interno contornado: '+String(e?.message||e).slice(0,160)})}catch{}});
+process.on('unhandledRejection',e=>{console.error(e);});
 const single=app.requestSingleInstanceLock();if(!single)app.quit();else app.whenReady().then(()=>{
  dataDir=app.getPath('userData');workMode=new WorkMode();modeStore=new ModeStore(dataDir);voiceModes=new VoiceModes(modeStore);root=app.isPackaged?process.resourcesPath:path.join(__dirname,'..');const runtime=app.isPackaged?path.join(root,'runtime'):path.join(root,'resources');python=process.platform==='win32'?path.join(runtime,'python','python.exe'):(process.env.ENZO_PYTHON||'python3');
  try{settings={...defaults,...JSON.parse(fs.readFileSync(path.join(dataDir,'settings.json'),'utf8'))}}catch{settings={...defaults}};

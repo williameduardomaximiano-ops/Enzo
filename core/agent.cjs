@@ -62,7 +62,7 @@ class AgentRunner{
     if(failed)return reject(Error('A tarefa passou do tempo limite e foi interrompida.'));
     if(agent==='claude'){if(result&&!result.error)return resolve({text:result.result});return reject(Error((result?.result||stripAnsi(err)||`O agente terminou com código ${code}.`).slice(0,400)));}
     const text=stripAnsi(raw).trim();if(code===0)return resolve({text:text.slice(-4000)||'Tarefa concluída.'});reject(Error((stripAnsi(err)||text||`O agente terminou com código ${code}.`).slice(-400)));});
-   if(cmd.stdin!=null)p.stdin.end(cmd.stdin);else p.stdin.end();
+   p.stdin.on?.('error',()=>{});if(cmd.stdin!=null)p.stdin.end(cmd.stdin);else p.stdin.end();
   });
  }
  stop(){if(this.proc){try{this.proc.kill();}catch{}this.proc=null;}}
