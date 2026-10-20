@@ -392,7 +392,7 @@
         frames.push(input);
         samples += input.length;
         if (!heard && samples > 16e3) {
-          frames = frames.slice(-3);
+          frames = frames.slice(-6);
           samples = frames.reduce((n, x) => n + x.length, 0);
         }
         if (heard && (silent > 16e3 * 1 || samples >= 16e3 * 28)) {
@@ -934,4 +934,46 @@ ${e.update.notes}`;
     $("#stt-engine").value = s.settings.sttEngine || "auto";
   }).catch(() => {
   });
+  $("#test-stt").onclick = async () => {
+    if (testing || busy) {
+      notice("Aguarde o teste terminar.");
+      return;
+    }
+    testing = true;
+    const out = $("#stt-result");
+    out.textContent = "Fale uma frase agora (5 segundos)\u2026";
+    let s, ctx;
+    try {
+      const dev = settings.micDevice || $("#device").value;
+      s = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: dev ? { exact: dev } : void 0, channelCount: 1, echoCancellation: settings.micEcho !== false, noiseSuppression: settings.micNoise !== false, autoGainControl: settings.micGain !== false }, video: false });
+      ctx = new AudioContext({ sampleRate: 16e3 });
+      const src = ctx.createMediaStreamSource(s);
+      const proc = ctx.createScriptProcessor(2048, 1, 1);
+      const chunks = [];
+      proc.onaudioprocess = (e) => {
+        const ch = new Float32Array(e.inputBuffer.getChannelData(0));
+        chunks.push(ch);
+        setMeter(Math.min(1, Math.sqrt(ch.reduce((a, x) => a + x * x, 0) / ch.length) / 0.1));
+      };
+      src.connect(proc);
+      proc.connect(ctx.destination);
+      await new Promise((r2) => setTimeout(r2, 5e3));
+      proc.disconnect();
+      src.disconnect();
+      setMeter(0);
+      out.textContent = "Reconhecendo\u2026";
+      const t0 = performance.now();
+      const r = await invoke("transcribe", wavBase64(chunks));
+      out.textContent = r.text ? `Entendi: \u201C${r.text}\u201D \u2014 ${r.engine === "groq" ? "Groq na nuvem" : "no PC"}${r.fallback ? " (a nuvem falhou)" : ""}, em ${secs(performance.now() - t0)} s.` : "N\xE3o ouvi nenhuma fala. Fale mais perto ou aumente a sensibilidade.";
+    } catch (e) {
+      out.textContent = "Teste: " + e.message;
+    } finally {
+      testing = false;
+      s?.getTracks().forEach((t) => t.stop());
+      try {
+        ctx?.close();
+      } catch {
+      }
+    }
+  };
 })();
