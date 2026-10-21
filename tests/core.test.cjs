@@ -8,6 +8,12 @@ test('autorização expira',()=>{let now=0;const gate=new Gate(()=>now);const a=
 test('pausa revoga pendências e impede novas ações até retomar',()=>{const g=new Gate();const a=g.propose({type:'open_app',app:'bloco'});g.pause();assert.throws(()=>g.consume(a.id,true));assert.throws(()=>g.propose({type:'open_app',app:'bloco'}));g.resume();assert.ok(g.propose({type:'open_app',app:'bloco'}));});
 test('limites de texto impedem payload gigante',()=>{assert.throws(()=>validateAction({type:'type_text',text:'x'.repeat(1501)}));assert.throws(()=>validateAction({type:'type_text',text:{}}));});
 test('comandos de atualização por voz',()=>{assert.equal(intent('ENZO, buscar atualizações').type,'updates');assert.equal(intent('Instalar atualização').type,'install_update');assert.equal(intent('Ler novidades').type,'changelog');});
+test('fala ambígua não vai para IA e aceita correção simples',()=>{
+ assert.equal(intent('Cosmo, não foi isso que eu pedi').type,'correction');
+ assert.equal(intent('Você entendeu errado').type,'correction');
+ assert.equal(intent('Cosmo, pesquise').type,'missing_detail');
+ assert.equal(intent('Abra').type,'missing_detail');
+});
 test('ordens locais e emergência sem modelo',()=>{assert.equal(intent('ENZO, abra a calculadora').action.app,'calculadora');assert.equal(intent('Pare!').type,'stop');assert.equal(intent('Qual é a capital da França?').type,'chat');});
 const {publicKey,privateKey}=crypto.generateKeyPairSync('ed25519');const manifest={version:'0.2.0',url:'https://example.com/ENZO.exe',sha256:'a'.repeat(64),size:2048,notes:'Melhorias.'};function signed(m=manifest){const payload=JSON.stringify(m);return {payload,signature:crypto.sign(null,Buffer.from(payload),privateKey).toString('base64')};}
 test('atualização exige assinatura válida',()=>{assert.equal(verifyManifest(signed(),publicKey,'0.1.0').version,'0.2.0');const e=signed();e.payload+=' ';assert.throws(()=>verifyManifest(e,publicKey,'0.1.0'));});
