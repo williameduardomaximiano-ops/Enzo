@@ -13,10 +13,11 @@ function systemFor(opts){const extra=[opts?.now?`Data e hora local: ${opts.now}.
 function recent(messages){return Array.isArray(messages)?messages.slice(-12):[];}
 function withTimeout(signal,ms){return signal?AbortSignal.any([signal,AbortSignal.timeout(ms)]):AbortSignal.timeout(ms);}
 function assertKey(key){if(typeof key!=='string'||key.length<8||key.length>1000||/\s/.test(key))throw Error('Chave inválida.');}
-function modelMissing(status,msg){if(status===404)return true;if(status===400&&/model|decommission|not[ -]?found|does not exist|desligad/i.test(msg||''))return true;return false;}
+function modelMissing(status,msg){if(status===404)return true;if(status===400&&/model.{0,100}(not[ -]?found|not supported|not available|does not exist|decommission|deprecated|desligad|no longer)|(?:not[ -]?found|not supported|not available|does not exist).{0,100}model/i.test(msg||''))return true;return false;}
 function providerError(provider,status,model,msg,missing){
- const e=Error(`${provider} ${status}: modelo "${model}" não existe ou foi desligado.${msg?' Detalhe: '+msg:''} Será tentado outro modelo/provedor.`);
- e.modelMissing=!!missing;return e;
+ const reason=missing?'modelo indisponível ou não encontrado':status===429?'limite de uso atingido':status>=500?'serviço temporariamente indisponível':`erro HTTP ${status}`;
+ const e=Error(`${provider} ${status}: ${reason} (${model}).${msg?' Detalhe: '+msg:''} Tentarei outra opção disponível.`);
+ e.modelMissing=!!missing;e.status=status;return e;
 }
 async function readError(r){
  let text='';try{text=await r.text();}catch{return '';}
@@ -52,7 +53,7 @@ async function geminiOnce(messages,model,apiKey,signal,system=SYSTEM){
  assertModel(model);assertKey(apiKey);
  const contents=recent(messages).map(x=>({role:x?.role==='assistant'?'model':'user',parts:[{text:String(x?.content||'').slice(0,6000)}]}));
  const r=await fetch(geminiBase()+'/models/'+encodeURIComponent(model)+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':apiKey},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents,generationConfig:{temperature:0.6,maxOutputTokens:700}}),signal:withTimeout(signal,30000)});
- if(r.status===400||r.status===401||r.status===403){const msg=await readError(r);throw Error('Chave Gemini rejeitada ou pedido inválido.'+(msg?' Detalhe: '+msg:''));}
+ if(r.status===401||r.status===403)throw Error('Chave Gemini rejeitada (401/403). Verifique o cofre.');
  if(!r.ok){const msg=await readError(r);throw providerError('Gemini',r.status,model,msg,modelMissing(r.status,msg));}
  let data;try{data=await r.json();}catch{throw Error('Gemini devolveu resposta inválida.');}
  if(data?.promptFeedback?.blockReason)throw Error('Resposta bloqueada pelo filtro do Gemini.');
@@ -77,6 +78,19 @@ async function geminiChat(messages,model,apiKey,signal,system=SYSTEM){
 }
 const claude=require('./claude.cjs');
 const ORDER=['groq','gemini','claude'];
+// Evita chamar repetidamente uma API que acabou de devolver 429.
+// Mesmo em espera, ela permanece como última alternativa caso as outras falhem.
+const cooldownUntil=Object.create(null),COOLDOWN_MS=60000;
+function providerChain(pref,keys,now=Date.now()){
+ const order=pref==='auto'?ORDER:[pref,...ORDER.filter(p=>p!==pref)];
+ const available=order.filter(p=>p==='claude'?!!keys.anthropic:!!keys[p]);
+ if(pref!=='auto')return available; // respeitar a escolha explícita do usuário
+ return [...available.filter(p=>(cooldownUntil[p]||0)<=now),...available.filter(p=>(cooldownUntil[p]||0)>now)];
+}
+function noteFailure(p,e){
+ if(e?.status===429||/\b429\b|limite de uso atingido/i.test(String(e?.message||'')))cooldownUntil[p]=Date.now()+COOLDOWN_MS;
+}
+function noteSuccess(p){delete cooldownUntil[p];}
 
 // ===== Cérebro com ferramentas (tool calling) =====
 // Transcrição neutra: {role:'user'|'assistant'|'tool', content, calls?:[{id,name,args}], id?, name?, raw?}
@@ -102,7 +116,7 @@ async function groqTools(transcript,tools,model,apiKey,signal,system){assertMode
 async function geminiTools(transcript,tools,model,apiKey,signal,system){assertModel(model);assertKey(apiKey);
  const r=await fetch(geminiBase()+'/models/'+encodeURIComponent(model)+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':apiKey},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:toGemini(transcript),...(tools.length?{tools:[{functionDeclarations:tools.map(t=>({name:t.name,description:t.description,parameters:t.parameters}))}]}:{}),generationConfig:{temperature:0.4,maxOutputTokens:1200}}),signal:withTimeout(signal,45000)});
  if(r.status===401||r.status===403)throw Error('Chave Gemini rejeitada.');
- if(!r.ok){const msg=await readError(r);throw providerError('Gemini',r.status,model,msg,modelMissing(r.status,msg)||r.status===400&&/model/i.test(msg));}
+ if(!r.ok){const msg=await readError(r);throw providerError('Gemini',r.status,model,msg,modelMissing(r.status,msg));}
  const data=await r.json();if(data?.promptFeedback?.blockReason)throw Error('Resposta bloqueada pelo filtro do Gemini.');
  const parts=data?.candidates?.[0]?.content?.parts||[];
  const calls=parts.filter(p=>p.functionCall).map(p=>({id:'g'+(++callSeq),name:p.functionCall.name,args:p.functionCall.args||{}}));
@@ -110,12 +124,14 @@ async function geminiTools(transcript,tools,model,apiKey,signal,system){assertMo
 async function withModelFallback(fn,model,list,pick){try{return await fn(model);}catch(e){if(!e.modelMissing)throw e;const ids=await list().catch(()=>[]);const alt=pick(ids.filter(id=>id!==model));if(!alt)throw e;return fn(alt);}}
 // Uma rodada do cérebro: devolve texto final ou chamadas de ferramenta, com fallback entre provedores.
 async function chatTools(transcript,tools,opts={},keys={},signal,system){
- const pref=typeof opts.provider==='string'&&ORDER.includes(opts.provider)?opts.provider:'auto';const chain=pref==='auto'?ORDER:[pref,...ORDER.filter(p=>p!==pref)];const failures=[];
+ const pref=typeof opts.provider==='string'&&ORDER.includes(opts.provider)?opts.provider:'auto';const chain=providerChain(pref,keys);const failures=[];
  for(const p of chain){try{
-  if(p==='groq'&&keys.groq)return await withModelFallback(m=>groqTools(transcript,tools,m,keys.groq,signal,system),opts.groqModel||DEFAULTS.groq,()=>groqModels(keys.groq,signal),pickGroq);
-  if(p==='claude'&&keys.anthropic)return await claude.claudeTools(transcript,tools,{model:opts.claudeModel,apiKey:keys.anthropic,signal,system});
-  if(p==='gemini'&&keys.gemini)return await withModelFallback(m=>geminiTools(transcript,tools,m,keys.gemini,signal,system),opts.geminiModel||DEFAULTS.gemini,()=>geminiModels(keys.gemini,signal),pickGemini);
- }catch(e){if(signal?.aborted)throw e;failures.push(p+': '+(e?.message||'falha').slice(0,160));}}
+  let result;
+  if(p==='groq'&&keys.groq)result=await withModelFallback(m=>groqTools(transcript,tools,m,keys.groq,signal,system),opts.groqModel||DEFAULTS.groq,()=>groqModels(keys.groq,signal),pickGroq);
+  if(p==='claude'&&keys.anthropic)result=await claude.claudeTools(transcript,tools,{model:opts.claudeModel,apiKey:keys.anthropic,signal,system});
+  if(p==='gemini'&&keys.gemini)result=await withModelFallback(m=>geminiTools(transcript,tools,m,keys.gemini,signal,system),opts.geminiModel||DEFAULTS.gemini,()=>geminiModels(keys.gemini,signal),pickGemini);
+  if(result){noteSuccess(p);return result;}
+ }catch(e){if(signal?.aborted)throw e;noteFailure(p,e);failures.push(p+': '+(e?.message||'falha').slice(0,160));}}
  if(!keys.groq&&!keys.gemini&&!keys.anthropic)throw Error('Nenhuma chave configurada. Abra Configuração → Cofre e salve a chave Groq, Gemini ou Claude.');
  throw Error((keys.anthropic?'Os provedores de IA falharam. ':'Groq e Gemini falharam. ')+failures.join(' | ').slice(0,500));}
 // Visão: descreve uma imagem (print da tela). Gemini primeiro; Groq com modelo de visão como reserva.
@@ -129,14 +145,16 @@ async function vision(prompt,image,opts={},keys={},signal){const failures=[];
 
 async function chatAuto(messages,opts={},keys={},signal){
  const pref=typeof opts.provider==='string'&&ORDER.includes(opts.provider)?opts.provider:'auto';
- const chain=pref==='auto'?ORDER:[pref,...ORDER.filter(p=>p!==pref)];
+ const chain=providerChain(pref,keys);
  const failures=[];const system=systemFor(opts);
  for(const p of chain){
   try{
-   if(p==='groq'&&keys.groq)return await groqChat(messages,opts.groqModel,keys.groq,signal,system);
-   if(p==='gemini'&&keys.gemini)return await geminiChat(messages,opts.geminiModel,keys.gemini,signal,system);
-   if(p==='claude'&&keys.anthropic)return parseReply(await claude.claudeChat(recent(messages),{model:opts.claudeModel,apiKey:keys.anthropic,signal,system}));
-  }catch(e){failures.push(p+': '+(e?.message||'falha').slice(0,160));}
+   let result;
+   if(p==='groq'&&keys.groq)result=await groqChat(messages,opts.groqModel,keys.groq,signal,system);
+   if(p==='gemini'&&keys.gemini)result=await geminiChat(messages,opts.geminiModel,keys.gemini,signal,system);
+   if(p==='claude'&&keys.anthropic)result=parseReply(await claude.claudeChat(recent(messages),{model:opts.claudeModel,apiKey:keys.anthropic,signal,system}));
+   if(result){noteSuccess(p);return result;}
+  }catch(e){if(signal?.aborted)throw e;noteFailure(p,e);failures.push(p+': '+(e?.message||'falha').slice(0,160));}
  }
  if(!keys.groq&&!keys.gemini&&!keys.anthropic)throw Error('Nenhuma chave configurada. Abra Configuração → Cofre e salve a chave Groq, Gemini ou Claude.');
  throw Error((keys.anthropic?'Os provedores de IA falharam. ':'Groq e Gemini falharam. ')+failures.join(' | ').slice(0,500));
