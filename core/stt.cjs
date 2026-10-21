@@ -1,12 +1,12 @@
 // Reconhecimento de fala: vocabulário de contexto, Whisper large-v3 no Groq (nuvem) e o Whisper local como reserva.
 const GROQ_MODELS=['whisper-large-v3-turbo','whisper-large-v3'];
-const BASE_TERMS=['Cosmo','William','YouTube','ChatGPT','Claude','Claude Code','Gemini','Groq','WhatsApp','Google','GitHub','OpenCode','Spotify','Downloads','Área de Trabalho'];
+const BASE_TERMS=['Cosmo','William','YouTube','ChatGPT','Claude','Claude Code','Gemini','Groq','WhatsApp','Google','GitHub','OpenCode','Spotify','Downloads','Área de Trabalho','DeepSeek','Big Pickle','Beam Free','Nemotron','MiniMax','GLM','MiMo','Google Maps','Maps','Brave','OpenCode Zen','LongCat'];
 const BASE_PHRASES='Cosmo, abra o YouTube. Pesquise no Google. Mande pro ChatGPT. Crie um site. Me lembre de beber água em 10 minutos. Que horas são? Como está o tempo? Aumente o volume. Toque uma música. Como está meu dia? Organize minha pasta Downloads. Que erro é esse na tela?';
 
 // Dica de vocabulário para o Whisper: nomes e comandos que ele deve preferir ao ouvir.
 function buildPrompt({contacts=[],projects=[],city='',memory=[]}={}){
  const names=[...new Set([...BASE_TERMS,...contacts.map(c=>c?.name).filter(Boolean),...projects,...(city?[city]:[])])].map(s=>String(s).slice(0,40));
- let p=`Conversa em português do Brasil com o assistente Cosmo. ${BASE_PHRASES} Nomes: ${names.join(', ')}.`;
+ let p=`Conversa em português do Brasil com o assistente Cosmo. Use os nomes próprios na grafia correta. ${BASE_PHRASES} Nomes: ${names.join(', ')}.`;
  const extra=memory.filter(f=>f.length<80).slice(-5).join('. ');if(extra)p+=` ${extra}.`;
  return p.slice(0,900);}
 // Corrige o nome do assistente quando o reconhecimento troca por palavras parecidas no começo ou no fim.
