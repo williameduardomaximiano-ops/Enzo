@@ -15,6 +15,8 @@ function makeTools(ctx){
  add('system_status','Uso de CPU, memória e tempo ligado do PC.',S({}),()=>ctx.systemStatus(),()=>'Verificando o sistema');
  add('daily_briefing','Resumo do dia: agenda, e-mails não lidos, lembretes e clima.',S({}),()=>ctx.briefing(),()=>'Preparando o resumo do dia');
  // Navegador e mídia
+ add('maps_search','Abre Google Maps pesquisando locais, serviços, estabelecimentos ou endereços, sem API paga.',S({query:str('lugar ou serviços para pesquisar')},['query']),a=>ctx.mapsSearch(a.query),a=>'Pesquisando no Google Maps');
+ add('maps_route','Abre trajeto no Google Maps, partindo do ponto informado ou da localização escolhida no navegador.',S({destination:str('destino'),origin:str('origem opcional')},['destination']),a=>ctx.mapsRoute(a.destination,a.origin||''),a=>'Abrindo rota no Google Maps');
  add('open_youtube','Abre o YouTube tocando o primeiro vídeo da busca (ou só a busca).',S({query:str('música, vídeo ou assunto'),only_search:{type:'boolean',description:'true para só mostrar a lista de resultados'}},['query']),a=>ctx.youtube(a.query,a.only_search),a=>`Abrindo no YouTube: ${a.query}`);
  add('open_website','Abre um site no navegador.',S({url:str('endereço https')},['url']),a=>ctx.openUrl(a.url),a=>`Abrindo ${a.url}`);
  add('ask_chatbot','Abre o ChatGPT, Claude ou Gemini no navegador já com a pergunta.',S({ai:{type:'string',enum:['chatgpt','claude','gemini']},question:str('texto a enviar')},['ai','question']),a=>ctx.askAi(a.ai,a.question),a=>`Enviando ao ${a.ai}`);
