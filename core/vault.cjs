@@ -1,5 +1,5 @@
 const PROVIDERS=Object.freeze(['groq','gemini','github','anthropic']);
-const ORDER=Object.freeze(['auto','groq','gemini','claude']);
+const ORDER=Object.freeze(['opencode','auto','groq','gemini','claude']);
 function validateProvider(p){if(!PROVIDERS.includes(p))throw Error('Provedor desconhecido.');return p;}
 function validateOrder(p){if(!ORDER.includes(p))throw Error('Prioridade inválida.');return p;}
 function validateKey(key){
