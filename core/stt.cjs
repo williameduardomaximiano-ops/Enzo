@@ -24,6 +24,6 @@ async function groqTranscribe(wav,{apiKey,prompt='',signal,fetchImpl=fetch,base=
 // Escolhe o motor: "local" (só no PC), "groq" (nuvem) ou "auto" (nuvem se houver chave Groq, senão local). Falha na nuvem cai no local.
 async function transcribe({audio,engine='auto',groqKey,prompt,local,signal,fetchImpl}){
  const wantCloud=engine==='groq'||(engine==='auto'&&!!groqKey);
- if(wantCloud&&groqKey){try{const text=await groqTranscribe(Buffer.from(audio,'base64'),{apiKey:groqKey,prompt,signal,fetchImpl});return {text:fixName(text),engine:'groq'};}catch(e){if(signal?.aborted)throw e;const r=await local(prompt);return {text:fixName(r.text),engine:'local',fallback:e.message};}}
- const r=await local(prompt);return {text:fixName(r.text),engine:'local'};}
+ if(wantCloud&&groqKey){try{const text=await groqTranscribe(Buffer.from(audio,'base64'),{apiKey:groqKey,prompt,signal,fetchImpl});return {text:fixName(text),engine:'groq'};}catch(e){if(signal?.aborted)throw e;const r=await local(prompt);return {text:fixName(r.text),engine:'local',fallback:e.message,...(r.uncertain?{uncertain:true}:{})};}}
+ const r=await local(prompt);return {text:fixName(r.text),engine:'local',...(r.uncertain?{uncertain:true}:{})};}
 module.exports={buildPrompt,fixName,groqTranscribe,transcribe,GROQ_MODELS};
