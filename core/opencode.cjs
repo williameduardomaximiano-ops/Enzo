@@ -40,21 +40,51 @@ async function models(signal){
   for(const [id,m] of Object.entries(provider.models||{})){
    const modelID=String(m?.id||id);
    if(!/^[\w./:-]{2,150}$/.test(modelID)||!isFree(modelID,m))continue;
-   found.push({providerID:'opencode',modelID,name:String(m?.name||modelID),vision:Array.isArray(m?.modalities?.input)&&m.modalities.input.includes('image')});
+   const inputs=Array.isArray(m?.modalities?.input)?m.modalities.input:[];
+   const outputs=Array.isArray(m?.modalities?.output)?m.modalities.output:[];
+   found.push({providerID:'opencode',modelID,name:String(m?.name||modelID),vision:inputs.includes('image'),inputs,outputs});
+   // inputs de imagem/vídeo/áudio significam que o modelo entende arquivos,
+   // NÃO que ele gera esses arquivos. Criação de mídia requer outro conector.
   }
  }
  if(!found.length)throw Error('Nenhum modelo grátis conectado no OpenCode. Confira o catálogo e o login.');
  return found;
 }
-const favorites=['nemotron-3.5-lightning','mimo-v2.6-flash','deepseek-v4.1-flash','glm-5.3-flash','big-pickle'];
+// Ordem local pré-definida, sem pedir a outra IA que decida o roteamento.
+// A disponibilidade e a gratuidade ainda são verificadas no OpenCode em cada consulta.
+const CHAT_FAVORITES=['deepseek-v4.1-flash-free','big-pickle','beam-free',
+ 'nemotron-3.5-lightning-free','glm-5.3-flash-free','mimo-v2.6-flash-free',
+ 'longcat-2.5-preview-free','minimax-m3.1-flash-free','nemotron-3.5-super-vl-free'];
+const VISION_FAVORITES=['nemotron-3.5-super-vl-free','glm-5.3-flash-free',
+ 'minimax-m3.1-flash-free','longcat-2.5-preview-free','mimo-v2.6-flash-free',
+ 'deepseek-v4.1-flash-free'];
 function ordered(list,selected,vision=false){
  const eligible=list.filter(m=>!vision||m.vision);
- if(!eligible.length)throw Error('Nenhum modelo gratuito disponível com suporte a imagens.');
+ if(!eligible.length)throw Error(vision?'Nenhum modelo gratuito com entrada de imagem disponível.':'Nenhum modelo gratuito disponível.');
  if(selected){const exact=eligible.find(m=>m.modelID===selected);
-  if(!exact)throw Error('O modelo escolhido não aparece entre os modelos grátis disponíveis.');
+  if(!exact)throw Error('O modelo escolhido não aparece entre os modelos grátis com a capacidade necessária.');
   return [exact,...eligible.filter(m=>m!==exact)];}
- return [...eligible].sort((a,b)=>{const score=m=>{const i=favorites.findIndex(s=>m.modelID.toLowerCase().includes(s));return i<0?100:i;};return score(a)-score(b);});
+ const favorites=vision?VISION_FAVORITES:CHAT_FAVORITES;
+ return [...eligible].sort((a,b)=>{
+  const score=m=>{const i=favorites.indexOf(m.modelID.toLowerCase());return i<0?100:i;};
+  return score(a)-score(b);
+ });
 }
+// Identificação simples e rápida de pedidos de CRIAÇÃO, não de análise de mídia.
+// Sem serviço de geração integrado, nunca trate uma entrada multimodal como gerador.
+function mediaIntent(input){
+ const s=String(input||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+ if(!/\b(cria|crie|criar|gere|gerar|gera|faca|fazer|faz|produza|produzir|monte|montar|transforme)\b/.test(s))return null;
+ if(/\b(video|videos|clipe|clipes|animacao|filmagem)\b/.test(s))return 'video';
+ if(/\b(imagem|imagens|foto|fotos|ilustracao|arte|desenho)\b/.test(s))return 'image';
+ if(/\b(audio|audios|musica|cancao|locucao|narracao)\b/.test(s))return 'audio';
+ return null;
+}
+function mediaNotice(kind){
+ const what=kind==='video'?'vídeos':kind==='audio'?'áudios':'imagens';
+ return 'Ainda não há um gerador de '+what+' gratuito e testado conectado ao COSMO. Os modelos multimodais do OpenCode podem analisar arquivos, mas isso não garante geração. Posso ajudar com um roteiro ou prompt.';
+}
+
 const toolDeny=Object.fromEntries(['bash','read','write','edit','apply_patch','glob','grep','webfetch','websearch','task','skill','question','lsp','todowrite','list','batch'].map(k=>[k,false]));
 async function one(model,prompt,system,image,signal){
  let session='';
@@ -93,4 +123,4 @@ async function chatTools(messages,tools,opts={},signal,system=''){
  return {text:String(d?.text||'').slice(0,6000),calls};
 }
 async function vision(prompt,image,opts={},signal){return ask(prompt,'Descreva esta imagem com precisão, sem executar ferramentas ou comandos.',opts,signal,image);}
-module.exports={models,isFree,ordered,chatAuto,chatTools,vision};
+module.exports={models,isFree,ordered,mediaIntent,mediaNotice,chatAuto,chatTools,vision};
