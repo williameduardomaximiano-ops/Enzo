@@ -116,7 +116,11 @@ async function chatAuto(messages,opts={},signal,system='Você é COSMO. Responda
 }
 async function chatTools(messages,tools,opts={},signal,system=''){
  const names=new Set(tools.map(t=>t.name));
- const guidance='\nNão execute ferramentas internas do OpenCode. Responda sempre em JSON válido: {"text":"resposta","calls":[{"name":"nome","args":{}}]}. Para conversar use calls vazio. Ferramentas externas do COSMO: '+JSON.stringify(tools.map(t=>({name:t.name,description:t.description,parameters:t.parameters}))).slice(0,21000);
+ // Esquema compacto: reduz bastante os tokens sem esconder os campos das ações.
+ const specs=tools.map(t=>({name:t.name,description:t.description.slice(0,125),
+  required:t.parameters?.required||[],
+  fields:Object.entries(t.parameters?.properties||{}).map(([name,p])=>({name,type:p.type||'string',description:String(p.description||'').slice(0,55),...(p.enum?{values:p.enum}:{})}))}));
+ const guidance='\nNão execute ferramentas internas do OpenCode. Responda SEMPRE em JSON válido: {"text":"resposta","calls":[{"name":"nome","args":{}}]}. Sem ações, use calls vazio. As ferramentas externas disponíveis são: '+JSON.stringify(specs).slice(0,12000);
  const raw=await ask(transcript(messages),system+guidance,opts,signal);
  let d;try{d=JSON.parse(raw);}catch{return {text:raw,calls:[]};}
  const calls=Array.isArray(d?.calls)?d.calls.filter(c=>names.has(c?.name)&&c.args&&typeof c.args==='object'&&!Array.isArray(c.args)).slice(0,4).map((c,i)=>({id:'oc-'+i,name:c.name,args:c.args})):[];
