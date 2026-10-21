@@ -196,6 +196,8 @@ async function handleChat(value,source='desktop'){
  const k=j?null:skillIntent(text);
  if(j)result={say:await handleJarvis(j,source,token)};
  else if(k){const out=await handleSkill(k,source,token);result=typeof out==='string'?{say:out}:out;}
+ else if(i.type==='correction')result={say:'Entendi que errei. Pode repetir o que queria, com o nome da tarefa ou aplicativo? Não vou executar nada até entender.'};
+ else if(i.type==='missing_detail')result={say:'O que exatamente o senhor quer que eu faça? Diga o nome do aplicativo ou o assunto.'};
  else if(media)result={say:opencode.mediaNotice(media)};
  else if(i.type==='time')result={say:`Agora são ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}.`};
  else if(i.type==='updates')result={say:await checkUpdate()};
