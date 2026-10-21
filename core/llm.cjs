@@ -77,6 +77,7 @@ async function geminiChat(messages,model,apiKey,signal,system=SYSTEM){
  }
 }
 const claude=require('./claude.cjs');
+const openCode=require('./opencode.cjs');
 const ORDER=['groq','gemini','claude'];
 // Evita chamar repetidamente uma API que acabou de devolver 429.
 // Mesmo em espera, ela permanece como última alternativa caso as outras falhem.
@@ -124,6 +125,7 @@ async function geminiTools(transcript,tools,model,apiKey,signal,system){assertMo
 async function withModelFallback(fn,model,list,pick){try{return await fn(model);}catch(e){if(!e.modelMissing)throw e;const ids=await list().catch(()=>[]);const alt=pick(ids.filter(id=>id!==model));if(!alt)throw e;return fn(alt);}}
 // Uma rodada do cérebro: devolve texto final ou chamadas de ferramenta, com fallback entre provedores.
 async function chatTools(transcript,tools,opts={},keys={},signal,system){
+ if(opts.provider==='opencode')return openCode.chatTools(transcript,tools,opts,signal,system);
  const pref=typeof opts.provider==='string'&&ORDER.includes(opts.provider)?opts.provider:'auto';const chain=providerChain(pref,keys);const failures=[];
  for(const p of chain){try{
   let result;
@@ -136,7 +138,9 @@ async function chatTools(transcript,tools,opts={},keys={},signal,system){
  throw Error((keys.anthropic?'Os provedores de IA falharam. ':'Groq e Gemini falharam. ')+failures.join(' | ').slice(0,500));}
 // Visão: descreve uma imagem (print da tela). Gemini primeiro; Groq com modelo de visão como reserva.
 const GROQ_VISION='meta-llama/llama-4-scout-17b-16e-instruct';
-async function vision(prompt,image,opts={},keys={},signal){const failures=[];
+async function vision(prompt,image,opts={},keys={},signal){
+ if(opts.provider==='opencode')return openCode.vision(prompt,image,opts,signal);
+ const failures=[];
  if(keys.anthropic){try{const t=await claude.claudeVision(prompt,image,{model:opts.claudeModel,apiKey:keys.anthropic,signal});if(t)return t;}catch(e){if(signal?.aborted)throw e;failures.push('Claude: '+e.message.slice(0,120));}}
  if(keys.gemini){try{const r=await geminiTools([{role:'user',content:prompt,image}],[],opts.geminiModel||DEFAULTS.gemini,keys.gemini,signal,'Você analisa capturas de tela para o assistente COSMO. Seja preciso e objetivo.');if(r.text)return r.text;}catch(e){failures.push('Gemini: '+e.message.slice(0,120));}}
  if(keys.groq){try{const r=await fetch(groqBase()+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.groq},body:JSON.stringify({model:opts.visionModel||GROQ_VISION,messages:[{role:'user',content:[{type:'text',text:prompt},{type:'image_url',image_url:{url:`data:${image.mime};base64,${image.data}`}}]}],temperature:0.2,max_tokens:800}),signal:withTimeout(signal,45000)});if(r.ok){const t=(await r.json())?.choices?.[0]?.message?.content;if(t)return String(t);}else failures.push('Groq: '+r.status);}catch(e){failures.push('Groq: '+e.message.slice(0,120));}}
@@ -144,6 +148,7 @@ async function vision(prompt,image,opts={},keys={},signal){const failures=[];
  throw Error('Não consegui analisar a tela. '+failures.join(' | '));}
 
 async function chatAuto(messages,opts={},keys={},signal){
+ if(opts.provider==='opencode')return openCode.chatAuto(messages,opts,signal,systemFor(opts));
  const pref=typeof opts.provider==='string'&&ORDER.includes(opts.provider)?opts.provider:'auto';
  const chain=providerChain(pref,keys);
  const failures=[];const system=systemFor(opts);
