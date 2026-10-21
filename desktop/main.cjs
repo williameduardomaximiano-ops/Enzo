@@ -1,4 +1,4 @@
-const {app,BrowserWindow,ipcMain,dialog,shell,globalShortcut,session,Tray,Menu,nativeImage,safeStorage,Notification,clipboard,desktopCapturer,screen:displays}=require('electron');const screenLib=require('../core/screen.cjs');const integ=require('../core/integrations.cjs');const {reactorBitmap}=require('../core/icon.cjs');const stt=require('../core/stt.cjs');
+const {app,BrowserWindow,ipcMain,dialog,shell,globalShortcut,session,Tray,Menu,nativeImage,safeStorage,Notification,clipboard,desktopCapturer,screen:displays}=require('electron');const screenLib=require('../core/screen.cjs');const {rectanglesOverlap}=require('../core/window-visibility.cjs');const integ=require('../core/integrations.cjs');const {reactorBitmap}=require('../core/icon.cjs');const stt=require('../core/stt.cjs');
 const path=require('node:path'),fs=require('node:fs'),os=require('node:os');const {spawn}=require('node:child_process');
 const {Gate,APPS,cleanText}=require('../core/policy.cjs');const {intent}=require('../core/intent.cjs');const {WorkMode}=require('../core/workmode.cjs');const {ModeStore,VoiceModes,parseTargets,normalizeName,LABELS}=require('../core/modes.cjs');const llm=require('../core/llm.cjs');const {Voice}=require('../core/voice.cjs');const {GitHubPrivateUpdater}=require('../updater/github-private.cjs');const {OWNER,REPO,PUBLIC_KEY_PEM}=require('../core/update-channel.cjs');const {Companion}=require('../core/android.cjs');const vaultLib=require('../core/vault.cjs');const {SecureStore,Memory,Reminders,jarvisIntent,sysinfo,statusReport,greeting,weather,describeDelay,formatAt,MEDIA}=require('../core/jarvis.cjs');const {skillIntent}=require('../core/skills.cjs');const {stripName}=require('../core/wake.cjs');const web=require('../core/web.cjs');const optimize=require('../core/optimize.cjs');const {AgentRunner,AGENTS,AGENT_MODEL,slug,sitePrompt,spoken}=require('../core/agent.cjs');const {runBrain,BRAIN_SYSTEM}=require('../core/brain.cjs');const {makeTools}=require('../core/tools.cjs');const {Files,summarizePlan,human}=require('../core/files.cjs');const {safeUrl}=require('../core/policy.cjs');
 let agentRunner=new AgentRunner(),memory,reminders,secretStore,secrets={imap:'',ics:''},win,tray,voice,updater,companion,workMode,modeStore,voiceModes,root,python,dataDir,settings,controller,busy=false,epoch=0,updateTimer,controlProcess;const gate=new Gate();const history=[];let state='idle';
@@ -107,19 +107,28 @@ async function briefingText(){const now=new Date();const parts=[greeting(now)];c
 function loadSecrets(){const d=secretStore.load({});secrets={imap:typeof d.imap==='string'?d.imap:'',ics:typeof d.ics==='string'?d.ics:''};}
 // ===== Visão da tela e controle =====
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));let lastPoint=null;
-// Tira o COSMO da frente para enxergar e clicar no que está atrás dele.
-async function hideSelf(){if(win&&win.isVisible()&&!win.isMinimized()){const focused=win.isFocused();win.minimize();await sleep(450);return focused;}return false;}
+// Oculta o COSMO somente quando ele cobre o monitor que vamos analisar.
+// Em dois monitores, manter a janela do COSMO aberta evita minimizar à toa.
+async function hideSelf(){if(!win||!win.isVisible()||win.isMinimized())return null;
+ if(!rectanglesOverlap(win.getBounds(),displays.getPrimaryDisplay().bounds))return null;
+ const focused=win.isFocused();win.minimize();await sleep(200);return {focused};}
+function restoreSelf(hidden){if(!hidden||!win||win.isDestroyed())return;if(win.isMinimized())win.restore();if(hidden.focused)win.focus();}
 async function captureScreen(){const d=displays.getPrimaryDisplay();const size=screenLib.captureSize(d);const sources=await desktopCapturer.getSources({types:['screen'],thumbnailSize:{width:size.width,height:size.height}});const src=sources.find(x=>String(x.display_id)===String(d.id))||sources[0];if(!src||src.thumbnail.isEmpty())throw Error('Não consegui capturar a tela.');const real=src.thumbnail.getSize();return {...size,width:real.width,height:real.height,image:{mime:'image/jpeg',data:src.thumbnail.toJPEG(82).toString('base64')}};}
-async function screenLook(q){const restore=await hideSelf();try{const shot=await captureScreen();audit('screen-look');return await llm.vision(screenLib.lookPrompt(q,shot.width,shot.height),shot.image,settings,apiKeys,controller.signal);}finally{if(restore){win.restore();win.focus();}}}
+async function screenLook(q){const hidden=await hideSelf();let shot;
+ try{shot=await captureScreen();}finally{restoreSelf(hidden);}
+ // A janela volta antes da IA processar a imagem (essa etapa pode demorar).
+ audit('screen-look');return await llm.vision(screenLib.lookPrompt(q,shot.width,shot.height),shot.image,settings,apiKeys,controller.signal);}
 async function confirmScreen(message,detail){if(settings.confirmClicks===false)return true;const r=await dialog.showMessageBox({type:'question',title:'COSMO • Tela',message,detail,buttons:['Cancelar','Confirmar'],defaultId:1,cancelId:0,noLink:true});await sleep(300);return r.response===1;}
-async function screenClick(target,double){if(process.platform!=='win32')throw Error('Clicar na tela exige Windows.');await hideSelf();const shot=await captureScreen();
+async function screenClick(target,double){if(process.platform!=='win32')throw Error('Clicar na tela exige Windows.');const hidden=await hideSelf();let shot;
+ try{shot=await captureScreen();}finally{restoreSelf(hidden);}
  const p=screenLib.parsePoint(await llm.vision(screenLib.clickPrompt(target,shot.width,shot.height),shot.image,settings,apiKeys,controller.signal));if(!p.found)return `Não encontrei "${target}" na tela: ${p.reason}.`;
  const pt=screenLib.toPhysical(p,shot);if(!await confirmScreen(`${double?'Clicar duas vezes':'Clicar'} em "${p.label||target}"?`,`Posição na tela: ${pt.x}, ${pt.y}. O COSMO localizou este elemento pela imagem; confirme se é o certo.`))return 'William cancelou o clique.';
- await runControl({type:'click',x:pt.x,y:pt.y,double},'clique');lastPoint={...pt,at:Date.now()};audit('screen-click');return `Cliquei em ${p.label||target}.`;}
+ const hiddenClick=await hideSelf();try{await runControl({type:'click',x:pt.x,y:pt.y,double},'clique');}finally{restoreSelf(hiddenClick);}
+ lastPoint={...pt,at:Date.now()};audit('screen-click');return `Cliquei em ${p.label||target}.`;}
 async function screenType(text,enter){if(process.platform!=='win32')throw Error('Digitar na tela exige Windows.');if(!lastPoint||Date.now()-lastPoint.at>180000)throw Error('Primeiro clique no campo onde devo digitar (use screen_click).');
  if(!await confirmScreen('Digitar este texto no campo selecionado?',`${text.slice(0,600)}${enter?'\n\nDepois aperto Enter.':''}\n\nO texto passa pela área de transferência (substitui o que estiver copiado).`))return 'William cancelou a digitação.';
  await runControl({type:'type_here',text:String(text).slice(0,4000),enter:!!enter,x:lastPoint.x,y:lastPoint.y},'digitação');audit('screen-type');return 'Texto digitado'+(enter?' e Enter pressionado.':'.');}
-async function pressKeys(keys){if(process.platform!=='win32')throw Error('Atalhos exigem Windows.');if(!screenLib.KEYS.includes(keys))throw Error('Atalho não permitido.');await hideSelf();await runControl({type:'keys',keys},'atalho');audit('screen-keys',{keys});return 'Atalho pressionado.';}
+async function pressKeys(keys){if(process.platform!=='win32')throw Error('Atalhos exigem Windows.');if(!screenLib.KEYS.includes(keys))throw Error('Atalho não permitido.');const hidden=await hideSelf();try{await runControl({type:'keys',keys},'atalho');}finally{restoreSelf(hidden);}audit('screen-keys',{keys});return 'Atalho pressionado.';}
 function hasAi(){return !!(apiKeys.groq||apiKeys.gemini||apiKeys.anthropic);}
 async function think(text,source,token){
  const tools=makeTools(brainContext(source,token)).filter(t=>!BRAIN_PENDING.has(t.name));
