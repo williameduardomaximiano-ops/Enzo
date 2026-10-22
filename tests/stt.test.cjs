@@ -13,3 +13,8 @@ test('motor: sem chave ou "somente no PC" usa o local; falha na nuvem cai no loc
  assert.deepEqual(await stt.transcribe({audio:'',engine:'auto',groqKey:'',local}),{text:'que horas são',engine:'local'});
  let called=false;assert.equal((await stt.transcribe({audio:'',engine:'local',groqKey:'gsk_x',local,fetchImpl:()=>{called=true}})).engine,'local');assert.equal(called,false);
  const r=await stt.transcribe({audio:'AAAA',engine:'groq',groqKey:'gsk_x_12345678',local,fetchImpl:async()=>({ok:false,status:500})});assert.equal(r.engine,'local');assert.match(r.fallback,/500/);});
+
+test('fala local extremamente incerta pede repetição e não vai à IA',async()=>{
+ const r=await stt.transcribe({audio:'',engine:'local',groqKey:'',prompt:'',local:async()=>({text:'abrir uma coisa aleatória',uncertain:true})});
+ assert.equal(r.engine,'local');assert.equal(r.uncertain,true);
+});

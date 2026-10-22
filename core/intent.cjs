@@ -1,6 +1,8 @@
 const {modeIntent}=require('./mode-intents.cjs');
 function norm(s){return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.!?]/g,'').trim();}
 function intent(text){const s=norm(text).replace(/^(?:cosmo|cosmos|kosmo|enzo)[, ]*/,'');
+ if(/^(?:nao foi isso(?: que eu pedi)?|nao era isso(?: que eu queria)?|voce entendeu errado|nao foi isso que eu falei|voce nao entendeu)$/.test(s))return {type:'correction'};
+ if(/^(?:abra|abre|abrir|pesquise|pesquisa|procure|procura|busque|busca|encontre|encontra)$/.test(s))return {type:'missing_detail'};
  if(/^(pare|parar|cancele|cancelar|silencio|modo privacidade)$/.test(s))return {type:'stop'};
  if(/^(?:(?:iniciar|inicia|ative|ativar|abrir|abre|come[cç]ar|comece|ligar|liga|entrar no|entre no) (?:o )?)?modo (?:de )?trabalho$/.test(s)||/^(vamos trabalhar|hora de trabalhar|iniciar expediente|inicia o expediente)$/.test(s))return {type:'work_mode_start'};
  if(/^(?:encerrar|encerre|desativar|desative|sair do|finalizar|finalize|fechar|feche) (?:o )?modo (?:de )?trabalho$/.test(s))return {type:'work_mode_end'};

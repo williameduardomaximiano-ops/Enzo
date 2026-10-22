@@ -1,8 +1,8 @@
-const {app,BrowserWindow,ipcMain,dialog,shell,globalShortcut,session,Tray,Menu,nativeImage,safeStorage,Notification,clipboard,desktopCapturer,screen:displays}=require('electron');const screenLib=require('../core/screen.cjs');const integ=require('../core/integrations.cjs');const {reactorBitmap}=require('../core/icon.cjs');const stt=require('../core/stt.cjs');
-const path=require('node:path'),fs=require('node:fs'),os=require('node:os');const {spawn}=require('node:child_process');
+const {app,BrowserWindow,ipcMain,dialog,shell,globalShortcut,session,Tray,Menu,nativeImage,safeStorage,Notification,clipboard,desktopCapturer,screen:displays}=require('electron');const screenLib=require('../core/screen.cjs');const {rectanglesOverlap}=require('../core/window-visibility.cjs');const integ=require('../core/integrations.cjs');const {reactorBitmap}=require('../core/icon.cjs');const stt=require('../core/stt.cjs');
+const path=require('node:path'),fs=require('node:fs'),os=require('node:os');const maps=require('../core/maps.cjs');const opencode=require('../core/opencode.cjs');const {spawn}=require('node:child_process');
 const {Gate,APPS,cleanText}=require('../core/policy.cjs');const {intent}=require('../core/intent.cjs');const {WorkMode}=require('../core/workmode.cjs');const {ModeStore,VoiceModes,parseTargets,normalizeName,LABELS}=require('../core/modes.cjs');const llm=require('../core/llm.cjs');const {Voice}=require('../core/voice.cjs');const {GitHubPrivateUpdater}=require('../updater/github-private.cjs');const {OWNER,REPO,PUBLIC_KEY_PEM}=require('../core/update-channel.cjs');const {Companion}=require('../core/android.cjs');const vaultLib=require('../core/vault.cjs');const {SecureStore,Memory,Reminders,jarvisIntent,sysinfo,statusReport,greeting,weather,describeDelay,formatAt,MEDIA}=require('../core/jarvis.cjs');const {skillIntent}=require('../core/skills.cjs');const {stripName}=require('../core/wake.cjs');const web=require('../core/web.cjs');const optimize=require('../core/optimize.cjs');const {AgentRunner,AGENTS,AGENT_MODEL,slug,sitePrompt,spoken}=require('../core/agent.cjs');const {runBrain,BRAIN_SYSTEM}=require('../core/brain.cjs');const {makeTools}=require('../core/tools.cjs');const {Files,summarizePlan,human}=require('../core/files.cjs');const {safeUrl}=require('../core/policy.cjs');
 let agentRunner=new AgentRunner(),memory,reminders,secretStore,secrets={imap:'',ics:''},win,tray,voice,updater,companion,workMode,modeStore,voiceModes,root,python,dataDir,settings,controller,busy=false,epoch=0,updateTimer,controlProcess;const gate=new Gate();const history=[];let state='idle';
-const defaults={remember:false,continuous:false,keepMicOn:true,sttEngine:'auto',compact:false,provider:'auto',groqModel:'openai/gpt-oss-120b',geminiModel:'gemini-3.5-flash',autoUpdate:true,micDevice:'',micSensitivity:'normal',micNoise:true,micEcho:true,micGain:true,wake:false,greet:true,city:'',agent:'claude',agentFull:false,quickOpen:true,projectsDir:'',lastProject:'',claudeModel:'claude-haiku-5-5',agentModel:AGENT_MODEL,brain:true,folders:[],confirmClicks:true,emailAddress:'',emailHost:'',contacts:[],briefing:true,lastBriefing:'',autostart:false,keepInTray:true,trayHintShown:false};
+const defaults={remember:false,continuous:false,keepMicOn:true,sttEngine:'local',compact:false,provider:'opencode',groqModel:'openai/gpt-oss-120b',geminiModel:'gemini-3.5-flash',autoUpdate:true,micDevice:'',micSensitivity:'normal',micNoise:true,micEcho:true,micGain:true,wake:false,greet:true,city:'',agent:'opencode',agentFull:false,quickOpen:true,projectsDir:'',lastProject:'',claudeModel:'claude-haiku-5-5',agentModel:AGENT_MODEL,brain:true,folders:[],confirmClicks:true,emailAddress:'',emailHost:'',contacts:[],briefing:true,lastBriefing:'',autostart:false,keepInTray:true,trayHintShown:false};
 // Sempre ligado: iniciado com o Windows vem com --hidden e fica só na bandeja.
 const startHidden=process.argv.includes('--hidden');let quitting=false;
 let apiKeys=vaultLib.emptyVault();
@@ -24,8 +24,11 @@ async function authorize(action){const pending=gate.propose(action);setState('pe
  const exe=path.join(process.env.SystemRoot||'C:\\Windows',allowed.app==='explorador'?'':'System32',APPS[allowed.app]);
  await new Promise((resolve,reject)=>{const p=spawn(exe,[],{detached:true,stdio:'ignore',windowsHide:false});p.once('error',reject);p.once('spawn',()=>{p.unref();resolve()})});
  }else if(allowed.type==='open_url'){await shell.openExternal(allowed.url);}else if(allowed.type==='media'){await runMedia(allowed.key);}else if(allowed.type==='agent'){return startAgent({task:allowed.task,dir:settings.lastProject||projectsDir()});}else{
- if(process.platform!=='win32')throw Error('Este comando exige Windows.');emit('notice',{text:'Selecione a janela de destino. Ação em 5 segundos. Ctrl+Alt+Esc cancela.'});win.minimize();const token=epoch;await new Promise(r=>setTimeout(r,5000));if(epoch!==token||gate.paused)throw Error('Ação interrompida.');
- await new Promise((resolve,reject)=>{const p=spawn(python,['-u',path.join(root,'voice','windows_control.py')],{windowsHide:true,stdio:['pipe','pipe','pipe']});controlProcess=p;let out='';p.stdout.on('data',x=>out+=x);p.on('error',reject);p.on('exit',code=>{controlProcess=null;code===0?resolve():reject(Error('Ação interrompida ou falhou. '+out.slice(0,300)))});p.stdin.on('error',()=>{});p.stdin.end(JSON.stringify(allowed));});
+ if(process.platform!=='win32')throw Error('Este comando exige Windows.');emit('notice',{text:'Selecione a janela de destino. Ação em 5 segundos. Ctrl+Alt+Esc cancela.'});const hidden=await hideSelf();const token=epoch;
+ try{
+  await new Promise(r=>setTimeout(r,5000));if(epoch!==token||gate.paused)throw Error('Ação interrompida.');
+  await new Promise((resolve,reject)=>{const p=spawn(python,['-u',path.join(root,'voice','windows_control.py')],{windowsHide:true,stdio:['pipe','pipe','pipe']});controlProcess=p;let out='';p.stdout.on('data',x=>out+=x);p.on('error',reject);p.on('exit',code=>{controlProcess=null;code===0?resolve():reject(Error('Ação interrompida ou falhou. '+out.slice(0,300)))});p.stdin.on('error',()=>{});p.stdin.end(JSON.stringify(allowed));});
+ }finally{restoreSelf(hidden);}
  }
  audit('action-completed',{action:allowed.type});return 'Comando executado.';
 }
@@ -34,7 +37,7 @@ function runMedia(key){return runControl({type:'media',key},'controle de mídia'
 function projectsDir(){return settings.projectsDir||path.join(app.getPath('documents'),'COSMO Projetos');}
 function freshDir(name){const base=projectsDir();let dir=path.join(base,name),n=2;while(fs.existsSync(dir))dir=path.join(base,`${name}-${n++}`);return dir;}
 // Abre um site pedido diretamente pelo usuário; com "abertura rápida" desligada, pede confirmação.
-async function openSite(url,source){if(settings.quickOpen!==false&&source==='desktop'&&web.isQuickUrl(url)){await shell.openExternal(url);audit('quick-open',{host:new URL(url).hostname});return;}await authorize({type:'open_url',url});}
+async function openSite(url,source){if(settings.quickOpen!==false&&source==='desktop'&&web.isQuickUrl(url)){await shell.openExternal(url);audit('quick-open',{host:new URL(url).hostname});return;}const decision=await authorize({type:'open_url',url});if(decision==='Ação cancelada.')throw Error('Abertura cancelada.');}
 // O agente roda em segundo plano: o COSMO continua disponível e avisa ao terminar.
 function startAgent({agent=settings.agent,task,dir,site=false}){
  if(agentRunner.busy)throw Error(`O ${AGENTS[agent]} ainda está trabalhando na tarefa anterior, senhor.`);
@@ -60,6 +63,8 @@ function brainContext(source,token){const signal=controller.signal;const desk=wh
   systemStatus:()=>statusReport(sysinfo(),{reminders:reminders.list().length}),
   youtube:async(q,only)=>{const url=only?'https://www.youtube.com/results?search_query='+encodeURIComponent(q):await web.youtubeUrl(q,{signal});await openSite(url,source);return 'Aberto: '+url;},
   openUrl:async url=>{const u=safeUrl(url);await openSite(u,source);return 'Aberto: '+u;},
+  mapsSearch:async q=>{const u=maps.searchUrl(q);await openSite(u,source);return 'Pesquisa aberta no Google Maps: '+q;},
+  mapsRoute:async(d,o)=>{const u=maps.directionsUrl(d,o);await openSite(u,source);return 'Rota aberta no Google Maps para '+d;},
   askAi:async(ai,q)=>{if(ai==='gemini'){clipboard.writeText(q);await openSite(web.SITES.gemini(),source);return 'Gemini aberto; pergunta copiada para colar.';}await openSite(web.SITES[ai](q),source);return `Enviado ao ${ai}.`;},
   media:async k=>{if(source!=='desktop')return authorize({type:'media',key:k});await runMedia(k);return MEDIA_SAY[k];},
   openApp:app=>authorize({type:'open_app',app}),
@@ -107,20 +112,26 @@ async function briefingText(){const now=new Date();const parts=[greeting(now)];c
 function loadSecrets(){const d=secretStore.load({});secrets={imap:typeof d.imap==='string'?d.imap:'',ics:typeof d.ics==='string'?d.ics:''};}
 // ===== Visão da tela e controle =====
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));let lastPoint=null;
-// Tira o COSMO da frente para enxergar e clicar no que está atrás dele.
-async function hideSelf(){if(win&&win.isVisible()&&!win.isMinimized()){const focused=win.isFocused();win.minimize();await sleep(450);return focused;}return false;}
+// Oculta a janela apenas quando encobre o monitor principal que será capturado.
+async function hideSelf(){if(!win||!win.isVisible()||win.isMinimized())return null;
+ if(!rectanglesOverlap(win.getBounds(),displays.getPrimaryDisplay().bounds))return null;
+ const focused=win.isFocused();win.minimize();await sleep(200);return {focused};}
+function restoreSelf(hidden){if(!hidden||!win||win.isDestroyed())return;if(win.isMinimized())win.restore();if(hidden.focused)win.focus();}
 async function captureScreen(){const d=displays.getPrimaryDisplay();const size=screenLib.captureSize(d);const sources=await desktopCapturer.getSources({types:['screen'],thumbnailSize:{width:size.width,height:size.height}});const src=sources.find(x=>String(x.display_id)===String(d.id))||sources[0];if(!src||src.thumbnail.isEmpty())throw Error('Não consegui capturar a tela.');const real=src.thumbnail.getSize();return {...size,width:real.width,height:real.height,image:{mime:'image/jpeg',data:src.thumbnail.toJPEG(82).toString('base64')}};}
-async function screenLook(q){const restore=await hideSelf();try{const shot=await captureScreen();audit('screen-look');return await llm.vision(screenLib.lookPrompt(q,shot.width,shot.height),shot.image,settings,apiKeys,controller.signal);}finally{if(restore){win.restore();win.focus();}}}
+async function screenLook(q){const hidden=await hideSelf();let shot;
+ try{shot=await captureScreen();}finally{restoreSelf(hidden);}
+ audit('screen-look');return await llm.vision(screenLib.lookPrompt(q,shot.width,shot.height),shot.image,settings,apiKeys,controller.signal);}
 async function confirmScreen(message,detail){if(settings.confirmClicks===false)return true;const r=await dialog.showMessageBox({type:'question',title:'COSMO • Tela',message,detail,buttons:['Cancelar','Confirmar'],defaultId:1,cancelId:0,noLink:true});await sleep(300);return r.response===1;}
-async function screenClick(target,double){if(process.platform!=='win32')throw Error('Clicar na tela exige Windows.');await hideSelf();const shot=await captureScreen();
+async function screenClick(target,double){if(process.platform!=='win32')throw Error('Clicar na tela exige Windows.');const hidden=await hideSelf();let shot;
+ try{shot=await captureScreen();}finally{restoreSelf(hidden);}
  const p=screenLib.parsePoint(await llm.vision(screenLib.clickPrompt(target,shot.width,shot.height),shot.image,settings,apiKeys,controller.signal));if(!p.found)return `Não encontrei "${target}" na tela: ${p.reason}.`;
  const pt=screenLib.toPhysical(p,shot);if(!await confirmScreen(`${double?'Clicar duas vezes':'Clicar'} em "${p.label||target}"?`,`Posição na tela: ${pt.x}, ${pt.y}. O COSMO localizou este elemento pela imagem; confirme se é o certo.`))return 'William cancelou o clique.';
- await runControl({type:'click',x:pt.x,y:pt.y,double},'clique');lastPoint={...pt,at:Date.now()};audit('screen-click');return `Cliquei em ${p.label||target}.`;}
+ const hiddenClick=await hideSelf();try{await runControl({type:'click',x:pt.x,y:pt.y,double},'clique');}finally{restoreSelf(hiddenClick);}lastPoint={...pt,at:Date.now()};audit('screen-click');return `Cliquei em ${p.label||target}.`;}
 async function screenType(text,enter){if(process.platform!=='win32')throw Error('Digitar na tela exige Windows.');if(!lastPoint||Date.now()-lastPoint.at>180000)throw Error('Primeiro clique no campo onde devo digitar (use screen_click).');
  if(!await confirmScreen('Digitar este texto no campo selecionado?',`${text.slice(0,600)}${enter?'\n\nDepois aperto Enter.':''}\n\nO texto passa pela área de transferência (substitui o que estiver copiado).`))return 'William cancelou a digitação.';
  await runControl({type:'type_here',text:String(text).slice(0,4000),enter:!!enter,x:lastPoint.x,y:lastPoint.y},'digitação');audit('screen-type');return 'Texto digitado'+(enter?' e Enter pressionado.':'.');}
-async function pressKeys(keys){if(process.platform!=='win32')throw Error('Atalhos exigem Windows.');if(!screenLib.KEYS.includes(keys))throw Error('Atalho não permitido.');await hideSelf();await runControl({type:'keys',keys},'atalho');audit('screen-keys',{keys});return 'Atalho pressionado.';}
-function hasAi(){return !!(apiKeys.groq||apiKeys.gemini||apiKeys.anthropic);}
+async function pressKeys(keys){if(process.platform!=='win32')throw Error('Atalhos exigem Windows.');if(!screenLib.KEYS.includes(keys))throw Error('Atalho não permitido.');const hidden=await hideSelf();try{await runControl({type:'keys',keys},'atalho');}finally{restoreSelf(hidden);}audit('screen-keys',{keys});return 'Atalho pressionado.';}
+function hasAi(){return settings.provider==='opencode'||!!(apiKeys.groq||apiKeys.gemini||apiKeys.anthropic);}
 async function think(text,source,token){
  const tools=makeTools(brainContext(source,token)).filter(t=>!BRAIN_PENDING.has(t.name));
  const system=[BRAIN_SYSTEM,`Data e hora local: ${new Date().toLocaleString('pt-BR',{dateStyle:'full',timeStyle:'short'})}.`,settings.city?`Cidade de William: ${settings.city}.`:'',memory.context()].filter(Boolean).join('\n\n');
@@ -142,13 +153,16 @@ async function handleSkill(k,source,token){
  if(k.type==='email')return await emailText(5);
  if(k.type==='whatsapp'){if(source!=='desktop')throw Error('O WhatsApp só pode ser aberto no computador.');return await whatsappSend(k.contact,k.message);}
  if(k.type==='open_projects'){fs.mkdirSync(projectsDir(),{recursive:true});const err=await shell.openPath(projectsDir());if(err)throw Error(err);return 'Pasta de projetos aberta, senhor.';}
+ if(k.type==='maps_open'){await openSite(maps.HOME,source);return 'Google Maps aberto, senhor.';}
+ if(k.type==='maps_search'){await openSite(maps.searchUrl(k.query),source);return 'Pesquisa aberta no Google Maps, senhor.';}
+ if(k.type==='maps_directions'){await openSite(maps.directionsUrl(k.destination,k.origin),source);return 'Rota aberta no Google Maps, senhor.';}
  if(k.type==='youtube'){const url=k.search||!k.query?(k.query?'https://www.youtube.com/results?search_query='+encodeURIComponent(k.query):'https://www.youtube.com/'):await web.youtubeUrl(k.query,{signal:controller.signal});await openSite(url,source);return k.query?`Colocando ${k.query} no YouTube, senhor.`:'YouTube aberto, senhor.';}
  if(k.type==='ask_ai'){let q=k.query;if(!q&&!k.open)q=[...history].reverse().find(h=>h.role==='assistant')?.content||'';const names={chatgpt:'ChatGPT',claude:'Claude',gemini:'Gemini'};
   if(k.ai==='gemini'&&q){clipboard.writeText(q);await openSite(web.SITES.gemini(),source);return 'Abri o Gemini e copiei a pergunta, senhor. É só colar.';}
   await openSite(q?web.SITES[k.ai](q):web.SITES[k.ai]('').replace(/\?q=$/,''),source);return q?`Enviado ao ${names[k.ai]}, senhor.`:`${names[k.ai]} aberto, senhor.`;}
  if(k.type==='google'){await openSite(web.SITES.google(k.query),source);return `Pesquisando ${k.query} no Google, senhor.`;}
  if(k.type==='research'){const r=await web.research(k.query,{signal:controller.signal});const sources=(r.pages.length?r.pages:r.results).map((p,i)=>`[${i+1}] ${p.title} — ${p.url}`).join('\n');
-  if(!apiKeys.groq&&!apiKeys.gemini)return {say:`Encontrei estes resultados, senhor: ${r.results.slice(0,3).map(x=>x.title).join('; ')}. Para eu ler e resumir, salve uma chave Groq ou Gemini no cofre.`,text:`Resultados para "${k.query}":\n${sources}`};
+  if(settings.provider!=='opencode'&&!apiKeys.groq&&!apiKeys.gemini)return {say:`Encontrei estes resultados, senhor: ${r.results.slice(0,3).map(x=>x.title).join('; ')}. Para eu ler e resumir, salve uma chave Groq ou Gemini no cofre.`,text:`Resultados para "${k.query}":\n${sources}`};
   const out=await llm.chatAuto([{role:'user',content:web.researchPrompt(k.query,r)}],{...settings,memory:'',now:new Date().toLocaleString('pt-BR')},apiKeys,controller.signal);if(epoch!==token)throw Error('Pedido cancelado.');
   return {say:out.say.replace(/\s*\[\d+(?:,\s*\d+)*\]/g,''),text:`${out.say}\n\nFontes:\n${sources}`};}
  if(k.type==='optimize'){const info=sysinfo();const tmp=os.tmpdir();const analysis={disk:optimize.diskFree(),temp:optimize.dirSize(tmp),top:await optimize.topProcesses(5),mem:info.mem};let say=optimize.report(analysis);
@@ -187,10 +201,13 @@ async function handleChat(value,source='desktop'){
  const text=stripName(cleanText(value));if(intent(text).type==='stop'){stop();return {say:'Pausado. Microfone e controle desligados.'};}
  if(gate.paused)throw Error('COSMO pausado. Clique em Retomar no computador.');if(busy)throw Error('Já estou processando um pedido. Você pode interromper.');busy=true;const token=epoch;controller=new AbortController();setState('thinking');
  try{
- const i=intent(text);const j=jarvisIntent(text);let result;
+ const i=intent(text);const j=jarvisIntent(text);const media=opencode.mediaIntent(text);let result;
  const k=j?null:skillIntent(text);
  if(j)result={say:await handleJarvis(j,source,token)};
  else if(k){const out=await handleSkill(k,source,token);result=typeof out==='string'?{say:out}:out;}
+ else if(i.type==='correction')result={say:'Entendi que errei. Pode repetir o que queria, com o nome da tarefa ou aplicativo? Não vou executar nada até entender.'};
+ else if(i.type==='missing_detail')result={say:'O que exatamente o senhor quer que eu faça? Diga o nome do aplicativo ou o assunto.'};
+ else if(media)result={say:opencode.mediaNotice(media)};
  else if(i.type==='time')result={say:`Agora são ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}.`};
  else if(i.type==='updates')result={say:await checkUpdate()};
  else if(i.type==='changelog')result={say:updater.available?.notes||'Nenhuma atualização nova verificada. Esta versão inclui voz local, holograma e controle supervisionado.'};
@@ -241,6 +258,9 @@ process.on('unhandledRejection',e=>{console.error(e);});
 const single=app.requestSingleInstanceLock();if(!single)app.quit();else app.whenReady().then(()=>{
  dataDir=app.getPath('userData');workMode=new WorkMode();modeStore=new ModeStore(dataDir);voiceModes=new VoiceModes(modeStore);root=app.isPackaged?process.resourcesPath:path.join(__dirname,'..');const runtime=app.isPackaged?path.join(root,'runtime'):path.join(root,'resources');python=process.platform==='win32'?path.join(runtime,'python','python.exe'):(process.env.ENZO_PYTHON||'python3');
  try{settings={...defaults,...JSON.parse(fs.readFileSync(path.join(dataDir,'settings.json'),'utf8'))}}catch{settings={...defaults}};
+ // Migração única: desliga APIs de IA comerciais, inclusive no reconhecimento por voz.
+ // As chaves permanecem criptografadas no cofre e escolhas futuras são respeitadas.
+ if(!settings.opencodeMigrated){settings.provider='opencode';settings.sttEngine='local';settings.agent='opencode';settings.opencodeMigrated=true;saveSettings();}
   loadVault();
   const crypt={available:()=>safeStorage.isEncryptionAvailable(),encrypt:t=>safeStorage.encryptString(t),decrypt:b=>safeStorage.decryptString(b)};
   memory=new Memory(new SecureStore(path.join(dataDir,'memory.enc'),crypt));

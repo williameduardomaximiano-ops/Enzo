@@ -47,3 +47,32 @@ test('Groq e Gemini via mocks locais, com fallback Groq→Gemini',async()=>{
   catch(e){const m=String(e.message);assert.ok(m.includes('Groq e Gemini falharam'));assert.ok(!m.includes('test-groq-key-12345')&&!m.includes('test-gemini-key-12345'));}
  }finally{delete process.env.ENZO_GROQ_BASE;delete process.env.ENZO_GEMINI_BASE;await groq.close().catch(()=>{});await gemini.close();}
 });
+
+test('Fallback automático: Gemini 400 de modelo é corrigido pela lista e Groq 429 entra em espera',async()=>{
+ let groqCalls=0,geminiCalls=0;
+ const groq=await listen(async(req,res)=>{
+  res.setHeader('Content-Type','application/json');
+  if(req.method==='GET')return res.end(JSON.stringify({data:[{id:'openai/gpt-oss-120b'}]}));
+  groqCalls++;res.statusCode=429;res.end(JSON.stringify({error:{message:'rate limit exceeded'}}));
+ });
+ const gemini=await listen(async(req,res)=>{
+  res.setHeader('Content-Type','application/json');
+  if(req.method==='GET')return res.end(JSON.stringify({models:[{name:'models/gemini-working-flash',supportedGenerationMethods:['generateContent']}]}));
+  geminiCalls++;
+  if(req.url.includes('gemini-deprecated')){res.statusCode=400;return res.end(JSON.stringify({error:{message:'models/gemini-deprecated is not found for API version v1beta'}}));}
+  res.end(JSON.stringify({candidates:[{content:{parts:[{text:'Resposta da IA de reserva.'}]}}]}));
+ });
+ process.env.ENZO_GROQ_BASE=`http://127.0.0.1:${groq.port}/openai/v1`;
+ process.env.ENZO_GEMINI_BASE=`http://127.0.0.1:${gemini.port}/v1beta`;
+ try{
+  const keys={groq:'test-groq-key-12345',gemini:'test-gemini-key-12345'};
+  const options={provider:'auto',geminiModel:'gemini-deprecated'};
+  const messages=[{role:'user',content:'Oi'}];
+  assert.equal((await llm.chatAuto(messages,options,keys)).say,'Resposta da IA de reserva.');
+  assert.equal(groqCalls,1);assert.equal(geminiCalls,2);
+  assert.equal((await llm.chatAuto(messages,options,keys)).say,'Resposta da IA de reserva.');
+  assert.equal(groqCalls,1,'deve evitar a Groq em cooldown no modo automático');
+  assert.equal((await llm.chatAuto(messages,{...options,provider:'groq'},keys)).say,'Resposta da IA de reserva.');
+  assert.equal(groqCalls,2,'a escolha manual Groq deve ser respeitada');
+ }finally{delete process.env.ENZO_GROQ_BASE;delete process.env.ENZO_GEMINI_BASE;await groq.close();await gemini.close();}
+});

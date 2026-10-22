@@ -73,7 +73,11 @@ def execute(req):
         segments,_=recognizer.transcribe(prepare_audio(pcm),language='pt',beam_size=5,best_of=5,temperature=(0.0,0.2,0.4),
             vad_filter=True,vad_parameters={'min_silence_duration_ms':400,'speech_pad_ms':300},no_speech_threshold=0.6,
             condition_on_previous_text=False,initial_prompt=(prompt[:900] or 'Conversa em português do Brasil com o assistente Cosmo. Nomes: Cosmo e William.'))
-        return {'text':' '.join(s.text.strip() for s in segments).strip()}
+        items=list(segments)
+        text=' '.join(s.text.strip() for s in items).strip()
+        # Evita executar comandos quando TODAS as partes foram reconhecidas com baixíssima confiança.
+        very_low=bool(items) and all(getattr(s,'avg_logprob',0.0)<-1.2 for s in items)
+        return {'text':text,'uncertain':bool(text and very_low)}
     raise ValueError('Operação desconhecida')
 
 if __name__=='__main__':

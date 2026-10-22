@@ -6,6 +6,8 @@ function tail(orig,normalized,captured){if(!captured)return '';const at=normaliz
 
 const AI={chatgpt:'chatgpt','chat gpt':'chatgpt',gpt:'chatgpt',claude:'claude',gemini:'gemini'};
 function skillIntent(text){
+ const maps=require('./maps.cjs').mapIntent(text);
+ if(maps)return maps;
  const s=norm(text);let m;const cap=v=>tail(text,s,v);
  // Agente de programação
  if((m=s.match(/^(?:crie|cria|criar|faca|faz|fazer|monte|monta|construa|gere|desenvolva|desenvolve) (?:um |uma |o |a )?(?:site|website|pagina|landing page|portfolio)(?: (?:de|do|da|para|pra|sobre|com|que))?\s*(.*)$/)))return {type:'agent_site',topic:cap(m[1])||'uma página pessoal de apresentação'};

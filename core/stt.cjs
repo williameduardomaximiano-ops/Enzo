@@ -1,12 +1,12 @@
 // Reconhecimento de fala: vocabulário de contexto, Whisper large-v3 no Groq (nuvem) e o Whisper local como reserva.
 const GROQ_MODELS=['whisper-large-v3-turbo','whisper-large-v3'];
-const BASE_TERMS=['Cosmo','William','YouTube','ChatGPT','Claude','Claude Code','Gemini','Groq','WhatsApp','Google','GitHub','OpenCode','Spotify','Downloads','Área de Trabalho'];
+const BASE_TERMS=['Cosmo','William','YouTube','ChatGPT','Claude','Claude Code','Gemini','Groq','WhatsApp','Google','GitHub','OpenCode','Spotify','Downloads','Área de Trabalho','DeepSeek','Big Pickle','Beam Free','Nemotron','MiniMax','GLM','MiMo','Google Maps','Maps','Brave','OpenCode Zen','LongCat'];
 const BASE_PHRASES='Cosmo, abra o YouTube. Pesquise no Google. Mande pro ChatGPT. Crie um site. Me lembre de beber água em 10 minutos. Que horas são? Como está o tempo? Aumente o volume. Toque uma música. Como está meu dia? Organize minha pasta Downloads. Que erro é esse na tela?';
 
 // Dica de vocabulário para o Whisper: nomes e comandos que ele deve preferir ao ouvir.
 function buildPrompt({contacts=[],projects=[],city='',memory=[]}={}){
  const names=[...new Set([...BASE_TERMS,...contacts.map(c=>c?.name).filter(Boolean),...projects,...(city?[city]:[])])].map(s=>String(s).slice(0,40));
- let p=`Conversa em português do Brasil com o assistente Cosmo. ${BASE_PHRASES} Nomes: ${names.join(', ')}.`;
+ let p=`Conversa em português do Brasil com o assistente Cosmo. Use os nomes próprios na grafia correta. ${BASE_PHRASES} Nomes: ${names.join(', ')}.`;
  const extra=memory.filter(f=>f.length<80).slice(-5).join('. ');if(extra)p+=` ${extra}.`;
  return p.slice(0,900);}
 // Corrige o nome do assistente quando o reconhecimento troca por palavras parecidas no começo ou no fim.
@@ -24,6 +24,6 @@ async function groqTranscribe(wav,{apiKey,prompt='',signal,fetchImpl=fetch,base=
 // Escolhe o motor: "local" (só no PC), "groq" (nuvem) ou "auto" (nuvem se houver chave Groq, senão local). Falha na nuvem cai no local.
 async function transcribe({audio,engine='auto',groqKey,prompt,local,signal,fetchImpl}){
  const wantCloud=engine==='groq'||(engine==='auto'&&!!groqKey);
- if(wantCloud&&groqKey){try{const text=await groqTranscribe(Buffer.from(audio,'base64'),{apiKey:groqKey,prompt,signal,fetchImpl});return {text:fixName(text),engine:'groq'};}catch(e){if(signal?.aborted)throw e;const r=await local(prompt);return {text:fixName(r.text),engine:'local',fallback:e.message};}}
- const r=await local(prompt);return {text:fixName(r.text),engine:'local'};}
+ if(wantCloud&&groqKey){try{const text=await groqTranscribe(Buffer.from(audio,'base64'),{apiKey:groqKey,prompt,signal,fetchImpl});return {text:fixName(text),engine:'groq'};}catch(e){if(signal?.aborted)throw e;const r=await local(prompt);return {text:fixName(r.text),engine:'local',fallback:e.message,...(r.uncertain?{uncertain:true}:{})};}}
+ const r=await local(prompt);return {text:fixName(r.text),engine:'local',...(r.uncertain?{uncertain:true}:{})};}
 module.exports={buildPrompt,fixName,groqTranscribe,transcribe,GROQ_MODELS};
