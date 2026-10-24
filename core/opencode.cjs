@@ -22,7 +22,7 @@ async function ensure(){
   OPENCODE_CONFIG_CONTENT:JSON.stringify({permission:{'*':'deny'}})};
  proc=spawn(bin,['serve','--hostname','127.0.0.1','--port',String(port)],{cwd,env,stdio:'ignore',windowsHide:true,shell:process.platform==='win32'&&/\.cmd$/i.test(bin)});
  const p=proc;p.on('error',()=>{});p.on('close',()=>{if(proc===p){proc=null;address='';password='';}try{fs.rmSync(cwd,{recursive:true,force:true});}catch{}});
- for(let i=0;i<40;i++){await sleep(250);if(p.exitCode!==null)break;try{if((await request('GET','/global/health',undefined,null,800))?.healthy)return;}catch{}}
+ for(let i=0;i<100;i++){await sleep(300);if(p.exitCode!==null||p.signalCode)break;try{if((await request('GET','/global/health',undefined,null,1000))?.healthy)return;}catch{}}
  try{p.kill();}catch{}
  throw Error('Não foi possível iniciar o servidor seguro do OpenCode. Teste opencode serve no Windows.');
 }
