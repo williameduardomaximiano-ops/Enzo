@@ -5,7 +5,7 @@ on:
   push:
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   instalador:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[instalador]')
@@ -38,10 +38,19 @@ jobs:
         run: python scripts/prepare-runtime.py
       - name: Gerar instalador
         run: npm run build:win
-      - name: Guardar instalador
-        uses: actions/upload-artifact@v4
-        with:
-          name: COSMO-instalador-teste
-          path: dist/ENZO-*-Windows-x64.exe
-          if-no-files-found: error
-          retention-days: 14
+      # GitHub Releases nao usa a cota de Actions Artifacts.
+      # PRERELEASE de teste: nao cria manifesto do atualizador e nao se confunde com versao estavel.
+      - name: Publicar instalador de teste no GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(dist/ENZO-*-Windows-x64.exe)
+          if [ "${#files[@]}" -ne 1 ]; then echo '::error::Esperado exatamente um instalador .exe'; exit 1; fi
+          sha256sum "${files[0]}" > "${files[0]}.sha256"
+          TAG="teste-windows11-${GITHUB_SHA:0:12}"
+          gh release create "$TAG" "${files[0]}" "${files[0]}.sha256" \
+            --prerelease --title "COSMO Windows 11 (teste ${GITHUB_SHA:0:12})" \
+            --notes 'Instalador de TESTE, nao validado em PC real. Base 0.2.1; nao representa a versao 0.2.2 nem inclui confirmacao de API publica nova. Nao distribuido pelo atualizador automatico.' \
+            --target "$GITHUB_SHA"
