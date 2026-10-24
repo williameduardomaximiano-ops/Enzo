@@ -1,3 +1,13 @@
+## Preparação da versão 0.2.2 (24/10/2026)
+
+Antes de compilar a release oficial, o GitHub agora valida se o segredo `ENZO_SIGNING_KEY` contém uma chave privada Ed25519 íntegra **e se corresponde à chave pública já instalada nos PCs**. O teste falha imediatamente se a chave estiver ausente, truncada ou trocada, sem imprimir o segredo. O instalador de teste gerado pela branch não é atualização oficial.
+
+**Para remover o bloqueio:** recupere o arquivo privado original `enzo-signing-private.pem` no computador que o gerou. Entre em GitHub → repositório Enzo → Settings → Secrets and variables → Actions → `ENZO_SIGNING_KEY` e substitua pelo PEM privado integral (BEGIN até END). Não coloque esse arquivo no repositório, no chat ou no instalador. Sem a chave original, é necessário planejar a migração de confiança e **instalação manual** de uma versão com chave pública nova; uma atualização automática instalada anteriormente não poderá aceitar outra chave pública.
+
+Publicar só após o CI e a validação real no Windows. A assinatura do manifesto Ed25519 não equivale à assinatura Authenticode do executável.
+
+---
+
 # Publicar uma versão do COSMO (automático)
 
 **Regra:** toda vez que chega na `main` uma versão nova no `package.json` (ex.: `0.2.0` → `0.2.1`), o GitHub publica sozinho e o COSMO instalado oferece a atualização. Sem versão nova, nada é publicado.
