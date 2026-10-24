@@ -43,6 +43,12 @@ jobs:
           if [ ! -s "$NOTES" ]; then mkdir -p release-notes; git log -1 --pretty=%s > "$NOTES"; fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"; echo "NOTES=$NOTES" >> "$GITHUB_ENV"; echo "publicar=sim" >> "$GITHUB_OUTPUT"
 
+      - name: Conferir assinatura com a chave pública instalada (antes do build)
+        if: steps.versao.outputs.publicar == 'sim'
+        env:
+          ENZO_SIGNING_KEY: ${{ secrets.ENZO_SIGNING_KEY }}
+        run: node scripts/check-release-key.cjs
+
       - name: Instalar dependências
         if: steps.versao.outputs.publicar == 'sim'
         run: npm ci
